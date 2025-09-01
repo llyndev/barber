@@ -13,13 +13,13 @@ public class BarberServiceMapper {
             return null;
         }
 
-        return BarberServiceResponse.builder()
-                .id(barberService.getId())
-                .nameService(barberService.getNameService())
-                .description(barberService.getDescription())
-                .durationInMinutes(barberService.getDurationInMinutes())
-                .price(barberService.getPrice())
-                .build();
+        return new BarberServiceResponse(
+                barberService.getId(),
+                barberService.getNameService(),
+                barberService.getDescription(),
+                barberService.getDurationInMinutes(),
+                barberService.getPrice()
+                );
     }
 
     public BarberService toEntity(BarberServiceRequest barberServiceRequest) {
@@ -28,10 +28,10 @@ public class BarberServiceMapper {
         }
 
         BarberService barberService = new BarberService();
-        barberService.setNameService(barberServiceRequest.getNameService());
-        barberService.setDescription(barberServiceRequest.getDescription());
-        barberService.setDurationInMinutes(barberServiceRequest.getDurationInMinutes());
-        barberService.setPrice(barberServiceRequest.getPrice());
+        barberService.setNameService(barberServiceRequest.nameService());
+        barberService.setDescription(barberServiceRequest.description());
+        barberService.setDurationInMinutes(barberServiceRequest.durationInMinutes());
+        barberService.setPrice(barberServiceRequest.price());
 
         return barberService;
     }

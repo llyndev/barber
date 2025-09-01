@@ -11,21 +11,20 @@ public class SchedulingMapper {
 
     public static SchedulingResponse toResponse(Scheduling scheduling) {
 
-        SchedulingResponse response = new SchedulingResponse();
-        response.setId(scheduling.getId());
-        response.setDateTime(scheduling.getDateTime());
-        response.setClientId(scheduling.getUser().getId());
-        response.setClientName(scheduling.getUser().getName());
-        response.setBarberId(scheduling.getBarber().getId());
-        response.setBarberName(scheduling.getBarber().getName());
-        response.setServiceId(scheduling.getBarberService().getId());
-        response.setServiceName(scheduling.getBarberService().getNameService());
-
-        return response;
+        return new SchedulingResponse(
+                scheduling.getId(),
+                scheduling.getDateTime(),
+                scheduling.getUser().getId(),
+                scheduling.getUser().getName(),
+                scheduling.getBarber().getId(),
+                scheduling.getBarber().getName(),
+                scheduling.getBarberService().getId(),
+                scheduling.getBarberService().getNameService()
+        );
     }
 
-    public static List<SchedulingResponse> toResponseList(List<Scheduling> schedulings) {
-        return schedulings.stream()
+    public static List<SchedulingResponse> toResponseList(List<Scheduling> scheduling) {
+        return scheduling.stream()
                 .map(SchedulingMapper::toResponse)
                 .toList();
     }
