@@ -2,6 +2,7 @@ package com.barbearia.barbearia.service;
 
 import com.barbearia.barbearia.model.AppUser;
 import com.barbearia.barbearia.repository.UserRepository;
+import com.barbearia.barbearia.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -19,12 +20,8 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         AppUser user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found" + email));
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
-        return User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .roles(user.getRole().name())
-                .build();
+        return new UserDetailsImpl(user);
     }
 }

@@ -1,17 +1,5 @@
 package com.barbearia.barbearia.dto.response;
 
-import lombok.*;
+import com.barbearia.barbearia.model.AppUser;
 
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor
-@Builder
-public class UserResponse {
-
-    private Long id;
-    private String name;
-    private String email;
-    private String telephone;
-    private String role;
-}
+public record UserResponse(Long id, String name, String email, String telephone, AppUser.Role role){}

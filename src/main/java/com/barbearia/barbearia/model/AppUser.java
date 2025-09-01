@@ -2,6 +2,11 @@ package com.barbearia.barbearia.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.time.LocalDate;
 
 @Entity
 @Getter
@@ -10,7 +15,7 @@ import lombok.*;
 @NoArgsConstructor
 @Builder
 @Table(name = "users")
-public class AppUser {
+public class AppUser{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,10 +37,13 @@ public class AppUser {
     @Column(name = "users_role")
     private Role role;
 
+    private boolean active = true;
+    private boolean blocked = false;
+    private LocalDate dateExpirationAccount;
+
     public enum Role {
         ADMIN,
         BARBER,
         CLIENT
     }
-
 }
