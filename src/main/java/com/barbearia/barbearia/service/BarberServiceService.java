@@ -25,6 +25,17 @@ public class BarberServiceService {
                 .toList();
     }
 
+    public BarberServiceResponse getById(Long id) {
+        return barberServiceRepository.findById(id)
+                .map(barberServiceMapper::toDTO)
+                .orElseThrow( () -> new RuntimeException("Service not found"));
+    }
+
+    public BarberService getEntityById(Long id) {
+        return barberServiceRepository.findById(id)
+                .orElseThrow( () -> new RuntimeException("Service not found"));
+    }
+
     public BarberServiceResponse save(BarberServiceRequest barberServiceRequest) {
 
         BarberService barberService = barberServiceMapper.toEntity(barberServiceRequest);
@@ -32,6 +43,10 @@ public class BarberServiceService {
         barberService = barberServiceRepository.save(barberService);
 
         return barberServiceMapper.toDTO(barberService);
+    }
+
+    public void delete(Long id){
+        barberServiceRepository.deleteById(id);
     }
 
 }
