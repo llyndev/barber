@@ -33,4 +33,7 @@ public class Scheduling {
     @Column(name = "scheduling_date_time")
     private LocalDateTime dateTime;
 
+    @Enumerated(EnumType.STRING)
+    private AppointmentStatus states = AppointmentStatus.SCHEDULED;
+
 }

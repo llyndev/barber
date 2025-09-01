@@ -4,10 +4,13 @@ import com.barbearia.barbearia.dto.request.SchedulingRequest;
 import com.barbearia.barbearia.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.mapper.SchedulingMapper;
 import com.barbearia.barbearia.model.Scheduling;
+import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.service.SchedulingService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,19 +28,26 @@ public class SchedulingController {
     }
 
     @PostMapping
-    public ResponseEntity<SchedulingResponse> newScheduling(@RequestBody SchedulingRequest schedulingRequest) {
+    public ResponseEntity<SchedulingResponse> newScheduling(@AuthenticationPrincipal UserDetailsImpl userDetails,
+            @Valid @RequestBody SchedulingRequest schedulingRequest) {
 
-        Scheduling scheduling = new Scheduling();
-        scheduling.setDateTime(schedulingRequest.getDateTime());
+        Long clientId = userDetails.user().getId();
 
-        Scheduling schedulingCreate = schedulingService.scheduling(
-                schedulingRequest.getClientId(),
-                schedulingRequest.getBarberServiceId(),
-                schedulingRequest.getBarberId(),
-                scheduling);
+        Scheduling newScheduling = schedulingService.createScheduling(clientId, schedulingRequest);
 
-        SchedulingResponse schedulingResponse = SchedulingMapper.toResponse(schedulingCreate);
-
+        SchedulingResponse schedulingResponse = SchedulingMapper.toResponse(newScheduling);
         return ResponseEntity.status(HttpStatus.CREATED).body(schedulingResponse);
+    }
+
+    @DeleteMapping("{id}/canceled")
+    public ResponseEntity<Void> cancelClient(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Long clientId = userDetails.user().getId();
+        schedulingService.cancelClient(id, clientId);
+        return ResponseEntity.noContent().build();
+
     }
 }
