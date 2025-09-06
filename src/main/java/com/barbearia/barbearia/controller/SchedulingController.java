@@ -8,11 +8,16 @@ import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.service.SchedulingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @RestController
@@ -24,7 +29,35 @@ public class SchedulingController {
 
     @GetMapping
     public List<SchedulingResponse> schedulingList() {
-        return schedulingService.getAll();
+        return schedulingService.listAll();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<SchedulingResponse> schedulingId(@PathVariable Long id) {
+        return ResponseEntity.ok(schedulingService.getById(id));
+    }
+
+    @GetMapping("/per-customer")
+    public List<SchedulingResponse> schedulingGetByClientId(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return schedulingService.getByClientId(userDetails.user().getId());
+    }
+
+    @GetMapping("/per-barber")
+    public List<SchedulingResponse> schedulingGetByBarberId(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return schedulingService.getByBarberId(userDetails.user().getId());
+    }
+
+    @GetMapping("/per-day")
+    public List<SchedulingResponse> schedulingGetByDay(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        LocalDateTime startDate = date.atStartOfDay();
+        LocalDateTime endDate = date.atTime(LocalTime.MAX);
+
+        return schedulingService.getByDateTime(startDate, endDate);
+    }
+
+    @GetMapping("/available-times")
+    public List<LocalTime> getAvailableTimes(@RequestParam LocalDate date, @RequestParam Long barberServiceId, @RequestParam Long barberId) {
+        return schedulingService.getAvailableSlots(date, barberServiceId, barberId);
     }
 
     @PostMapping
@@ -39,13 +72,15 @@ public class SchedulingController {
         return ResponseEntity.status(HttpStatus.CREATED).body(schedulingResponse);
     }
 
-    @DeleteMapping("{id}/canceled")
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelClient(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
         if (userDetails == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         Long clientId = userDetails.user().getId();
+
         schedulingService.cancelClient(id, clientId);
         return ResponseEntity.noContent().build();
 

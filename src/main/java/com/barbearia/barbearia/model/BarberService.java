@@ -25,7 +25,7 @@ public class BarberService {
     private String description;
 
     @Column(name = "duration_in_minutes")
-    private int durationInMinutes;
+    private Integer durationInMinutes;
 
     @Column(name = "price_service")
     private BigDecimal price;
