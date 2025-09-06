@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class BarberServiceMapper {
 
-    public BarberServiceResponse toDTO(BarberService barberService) {
+    public static BarberServiceResponse toDTO(BarberService barberService) {
         if (barberService == null) {
             return null;
         }
