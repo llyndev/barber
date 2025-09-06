@@ -10,6 +10,18 @@ import java.util.Map;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleResourceNotFound(ResourceNotFoundException exception) {
+        Map<String, String> body = Map.of("Error", exception.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidRequest(InvalidRequestException exception) {
+        Map<String, String> body = Map.of("Error", exception.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(ConflictingScheduleException.class)
     public ResponseEntity<Object> handleHourlyConflicting(ConflictingScheduleException exception) {
         Map<String, String> body = Map.of("Error", exception.getMessage());
