@@ -1,5 +1,8 @@
 package com.barbearia.barbearia.controller;
 
+import com.barbearia.barbearia.dto.request.AddServiceRequest;
+import com.barbearia.barbearia.dto.request.EndSchedulingRequest;
+import com.barbearia.barbearia.dto.request.ReasonRequest;
 import com.barbearia.barbearia.dto.request.SchedulingRequest;
 import com.barbearia.barbearia.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.mapper.SchedulingMapper;
@@ -85,6 +88,18 @@ public class SchedulingController {
         Long clientId = userDetails.user().getId();
 
         schedulingService.cancelClient(id, clientId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/barber/{id}")
+    @PreAuthorize("hasRole('BARBER')")
+    public ResponseEntity<Void> cancelBarber(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails, @RequestBody ReasonRequest reasonRequest) {
+
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        schedulingService.cancelBarber(id, userDetails.user().getId(), reasonRequest.reason());
         return ResponseEntity.noContent().build();
     }
 

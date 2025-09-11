@@ -104,9 +104,16 @@ public class SchedulingService {
         scheduling.setStates(AppointmentStatus.CANCELED);
     }
 
-    public List<LocalTime> getAvailableSlots(LocalDate date, Long barberServiceId, Long barberId) {
-        BarberService barberService = barberServiceRepository.findById(barberServiceId)
-                .orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Service not found"));
+    @Transactional
+    public void cancelBarber(Long schedulingId, Long barberId, String reason) {
+        Scheduling scheduling = schedulingRepository.findById(schedulingId).orElseThrow(
+                () -> new ResourceNotFoundException("Scheduling not found")
+        );
+
+        if (!scheduling.getBarber().getId().equals(barberId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "FORBIDDEN");
+        }
 
         final int SLOT_MINUTES = 15;
         final Duration durationService = Duration.ofMinutes(barberService.getDurationInMinutes());
