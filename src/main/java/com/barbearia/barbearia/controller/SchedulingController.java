@@ -83,6 +83,18 @@ public class SchedulingController {
 
         schedulingService.cancelClient(id, clientId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/barber/completed/{id}")
+    public ResponseEntity<SchedulingResponse> completedScheduling(@PathVariable Long id, @RequestBody EndSchedulingRequest request, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        Long barberId = userDetails.user().getId();
+
+        Scheduling scheduling = schedulingService.endService(id, request, barberId);
+
+        SchedulingResponse schedulingResponse = SchedulingMapper.toResponse(scheduling);
+
+        return ResponseEntity.ok(schedulingResponse);
+    }
 
     }
 }
