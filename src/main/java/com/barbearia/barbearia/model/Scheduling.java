@@ -36,6 +36,9 @@ public class Scheduling {
     @Enumerated(EnumType.STRING)
     private AppointmentStatus states = AppointmentStatus.SCHEDULED;
 
+    @Column(name = "reason_cancel")
+    private String reasonCancel;
+
     @Column(name = "additional_value")
     private BigDecimal additionalValue;
 

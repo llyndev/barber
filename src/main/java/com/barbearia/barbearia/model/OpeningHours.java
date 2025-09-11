@@ -44,6 +44,6 @@ public class OpeningHours {
 
     public enum TypeRule {
         RECURRING,
-        SPECIFIC_DATA
+        SPECIFIC_DATE
     }
 }
