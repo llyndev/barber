@@ -1,5 +1,6 @@
 package com.barbearia.barbearia.mapper;
 
+import com.barbearia.barbearia.dto.response.BarberServiceResponse;
 import com.barbearia.barbearia.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.model.Scheduling;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,9 @@ public class SchedulingMapper {
             return null;
         }
 
-        var serviceResponse = BarberServiceMapper.toDTO(scheduling.getBarberService());
+        List<BarberServiceResponse> serviceResponses = scheduling.getBarberService().stream()
+                .map(BarberServiceMapper::toDTO)
+                .toList();
 
         var clientResponse = UserMapper.toClientResponse(scheduling.getUser());
 
@@ -30,11 +33,12 @@ public class SchedulingMapper {
                 scheduling.getUser().getName(),
                 scheduling.getBarber().getId(),
                 scheduling.getBarber().getName(),
-                scheduling.getBarberService().getId(),
-                scheduling.getBarberService().getNameService(),
+                serviceResponses,
                 clientResponse,
                 barberResponse,
-                serviceResponse
+                scheduling.getObservation(),
+                scheduling.getAdditionalValue(),
+                scheduling.getPaymentMethod()
         );
     }
 

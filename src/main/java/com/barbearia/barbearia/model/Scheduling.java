@@ -3,7 +3,9 @@ package com.barbearia.barbearia.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Getter
@@ -22,13 +24,16 @@ public class Scheduling {
     @JoinColumn(name = "user_id")
     private AppUser user;
 
-    @ManyToOne
+    @ManyToOne()
     @JoinColumn(name = "barber_id")
     private AppUser barber;
 
-    @ManyToOne
-    @JoinColumn(name = "barber_service_id")
-    private BarberService barberService;
+    @ManyToMany
+    @JoinTable(
+            name = "scheduling_services",
+            joinColumns = @JoinColumn(name = "scheduling_id"),
+            inverseJoinColumns = @JoinColumn(name = "barber_service_id"))
+    private List<BarberService> barberService;
 
     @Column(name = "scheduling_date_time")
     private LocalDateTime dateTime;

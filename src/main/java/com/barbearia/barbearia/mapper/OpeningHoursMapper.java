@@ -34,7 +34,6 @@ public class OpeningHoursMapper {
                 openingHours.getId(),
                 openingHours.getTypeRule(),
                 openingHours.getDayOfWeek(),
-                openingHours.getSpecificDate(),
                 openingHours.isActive(),
                 openingHours.getOpenTime(),
                 openingHours.getCloseTime()
@@ -47,12 +46,11 @@ public class OpeningHoursMapper {
         }
 
         OpeningHours entity = new OpeningHours();
-        entity.setTypeRule(request.typeRule());
         entity.setDayOfWeek(request.dayOfWeek());
-        entity.setSpecificDate(request.specificDate());
         entity.setActive(request.active());
         entity.setOpenTime(request.openTime());
         entity.setCloseTime(request.closeTime());
+
         return entity;
     }
 
