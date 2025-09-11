@@ -36,4 +36,13 @@ public class Scheduling {
     @Enumerated(EnumType.STRING)
     private AppointmentStatus states = AppointmentStatus.SCHEDULED;
 
+    @Column(name = "additional_value")
+    private BigDecimal additionalValue;
+
+    @Column(name = "observation_scheduling")
+    private String observation;
+
+    @Column(name = "payment_method")
+    private PaymentMethod paymentMethod;
+
 }
