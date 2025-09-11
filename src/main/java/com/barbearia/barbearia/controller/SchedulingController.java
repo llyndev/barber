@@ -114,5 +114,12 @@ public class SchedulingController {
         return ResponseEntity.ok(schedulingResponse);
     }
 
+    @PostMapping("/barber/add-service/{id}")
+    public ResponseEntity<SchedulingResponse> addService(@PathVariable Long id, @RequestBody AddServiceRequest request) {
+        Scheduling scheduling = schedulingService.addService(id, request.barberServiceIds());
+
+        SchedulingResponse response = SchedulingMapper.toResponse(scheduling);
+
+        return ResponseEntity.ok(response);
     }
 }
