@@ -1,5 +1,6 @@
 package com.barbearia.barbearia.service;
 
+import com.barbearia.barbearia.dto.request.EndSchedulingRequest;
 import com.barbearia.barbearia.dto.request.SchedulingRequest;
 import com.barbearia.barbearia.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.exception.ConflictingScheduleException;
@@ -38,17 +39,20 @@ public class SchedulingService {
     private final OpeningHoursService openingHoursService;
     private final SchedulingMapper schedulingMapper;
 
+    @Transactional(readOnly = true)
     public List<SchedulingResponse> listAll() {
         List<Scheduling> scheduling = schedulingRepository.findAll();
         return SchedulingMapper.toResponseList(scheduling);
     }
 
+    @Transactional(readOnly = true)
     public SchedulingResponse getById(Long id) {
         Scheduling scheduling = schedulingRepository.findById(id).orElseThrow(
                 () -> new ResourceNotFoundException("Scheduling not found"));
         return SchedulingMapper.toResponse(scheduling);
     }
 
+    @Transactional(readOnly = true)
     public List<SchedulingResponse> getByClientId(Long id) {
         List<Scheduling> scheduling = schedulingRepository.findByUser_Id(id);
         return SchedulingMapper.toResponseList(scheduling);
@@ -68,20 +72,26 @@ public class SchedulingService {
     public Scheduling createScheduling(Long clientId, SchedulingRequest request) {
         AppUser user = userService.getEntityById(clientId);
         AppUser barber = userService.getEntityById(request.barberId());
-        BarberService barberService = barberServiceService.getEntityById(request.barberServiceId());
+
+        List<BarberService> barberService = barberServiceRepository.findAllById(request.barberServiceIds());
+        if (barberService.isEmpty()) {
+            throw new ResourceNotFoundException("Barber service not found");
+        }
 
         LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
-
         ensureAvailableOrThrow(barber.getId(), barberService, start);
 
-        Scheduling scheduling = new Scheduling();
-        scheduling.setUser(user);
-        scheduling.setBarber(barber);
-        scheduling.setBarberService(barberService);
-        scheduling.setDateTime(request.dateTime());
-        scheduling.setStates(AppointmentStatus.SCHEDULED);
+        Scheduling sched = new Scheduling();
+        sched.setUser(user);
+        sched.setBarber(barber);
+        sched.setBarberService(barberService);
+        sched.setDateTime(request.dateTime());
+        sched.setStates(AppointmentStatus.SCHEDULED);
 
-        return schedulingRepository.save(scheduling);
+        schedulingRepository.save(sched);
+
+        return sched;
+
     }
 
     @Transactional
@@ -102,6 +112,7 @@ public class SchedulingService {
         }
 
         scheduling.setStates(AppointmentStatus.CANCELED);
+        schedulingRepository.save(scheduling);
     }
 
     @Transactional
@@ -115,8 +126,67 @@ public class SchedulingService {
                     "FORBIDDEN");
         }
 
-        final int SLOT_MINUTES = 15;
-        final Duration durationService = Duration.ofMinutes(barberService.getDurationInMinutes());
+        scheduling.setStates(AppointmentStatus.CANCELED);
+        scheduling.setReasonCancel(reason);
+        schedulingRepository.save(scheduling);
+    }
+
+    public Scheduling endService(Long schedulingId, EndSchedulingRequest endSchedulingRequest, Long barberId) {
+
+        Scheduling scheduling = schedulingRepository.findById(schedulingId).orElseThrow(
+                () -> new ResourceNotFoundException("Scheduling not found")
+        );
+
+        if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
+            throw new InvalidRequestException("Bad request");
+        }
+
+        scheduling.setStates(AppointmentStatus.COMPLETED);
+        scheduling.setObservation(endSchedulingRequest.observation());
+        scheduling.setAdditionalValue(endSchedulingRequest.additionalValue());
+        scheduling.setPaymentMethod(endSchedulingRequest.paymentMethod());
+
+        return schedulingRepository.save(scheduling);
+    }
+
+    @Transactional
+    public Scheduling addService(Long schedulingId, List<Long> newServiceIds) {
+
+        Scheduling scheduling = schedulingRepository.findById(schedulingId).orElseThrow(
+                () -> new ResourceNotFoundException("Scheduling not found")
+        );
+
+        List<BarberService> newService = barberServiceRepository.findAllById(newServiceIds);
+        if (newService.size() != newServiceIds.size()) {
+            throw new ResourceNotFoundException("Not found");
+        }
+
+        for (BarberService serviceToAdd : newService) {
+            if (!scheduling.getBarberService().contains(serviceToAdd)) {
+                scheduling.getBarberService().add(serviceToAdd);
+            }
+        }
+
+        return schedulingRepository.save(scheduling);
+
+    }
+
+    public List<LocalTime> getAvailableSlots(LocalDate date, List<Long> barberServiceIds, Long barberId) {
+        if (barberServiceIds == null || barberServiceIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<BarberService> barberService = barberServiceRepository.findAllById(barberServiceIds);
+        if (barberService.size() != barberServiceIds.size()) {
+            throw new ResourceNotFoundException("One or more services not found.");
+        }
+
+        int totalDurationInMinutes = barberService.stream()
+                .mapToInt(BarberService::getDurationInMinutes)
+                .sum();
+
+        final Duration durationService = Duration.ofMinutes(totalDurationInMinutes);
+
         final long slotsNeeded = (long) Math.ceil((double) durationService.toMinutes() / SLOT_MINUTES);
 
         var hoursOpt = openingHoursService.findForDate(date);
@@ -128,8 +198,10 @@ public class SchedulingService {
         final LocalTime close = hoursOpt.get().closeTime();
 
         List<LocalTime> daySlots = new ArrayList<>();
-        for (LocalTime t = open; t.isBefore(close); t = t.plusMinutes(SLOT_MINUTES)) {
+        LocalTime t = open;
+        while (!t.isAfter(close.minusMinutes(SLOT_MINUTES))) {
             daySlots.add(t);
+            t = t.plusMinutes(SLOT_MINUTES);
         }
 
         LocalDateTime startOfDay = date.atStartOfDay();
@@ -144,13 +216,18 @@ public class SchedulingService {
             if (scheduling.getStates() != AppointmentStatus.SCHEDULED) continue;
 
             LocalTime start = scheduling.getDateTime().toLocalTime();
-            long schedulingSlots = (long) Math.ceil((double) scheduling.getBarberService().getDurationInMinutes() / SLOT_MINUTES);
 
-            LocalTime t = start;
+            int existingDurationInMinutes = scheduling.getBarberService().stream()
+                    .mapToInt(BarberService::getDurationInMinutes)
+                    .sum();
+
+            long schedulingSlots = (long) Math.ceil((double) existingDurationInMinutes / SLOT_MINUTES);
+
+            LocalTime st = start;
             for (int i = 0; i < schedulingSlots; i++) {
-                if (!t.isBefore(close)) break;
-                occupied.add(t);
-                t = t.plusMinutes(SLOT_MINUTES);
+                if (!st.isBefore(close)) break;
+                occupied.add(st);
+                st = st.plusMinutes(SLOT_MINUTES);
             }
         }
 
@@ -177,7 +254,7 @@ public class SchedulingService {
                 .collect(Collectors.toList());
     }
 
-    private void ensureAvailableOrThrow(Long barberId, BarberService barberService, LocalDateTime start) {
+    private void ensureAvailableOrThrow(Long barberId, List<BarberService> barberService, LocalDateTime start) {
         if (start == null) {
             throw new InvalidRequestException("Appointment details and time are mandatory.");
         }
@@ -198,12 +275,17 @@ public class SchedulingService {
         LocalTime open = hoursOpt.get().openTime();
         LocalTime close = hoursOpt.get().closeTime();
 
-        Duration duration = Duration.ofMinutes(barberService.getDurationInMinutes());
-        LocalTime startTime = start.toLocalTime();
-        LocalTime endTime = startTime.plus(duration);
+        int totalDurationInMinutes = barberService.stream()
+                .mapToInt(BarberService::getDurationInMinutes)
+                .sum();
 
-        if (startTime.isBefore(open) || endTime.isAfter(close) || !startTime.isBefore(close)) {
-            throw new InvalidRequestException("Barber closed");
+        Duration totalDuration = Duration.ofMinutes(totalDurationInMinutes);
+
+        LocalTime startTime = start.toLocalTime();
+        LocalTime endTime = startTime.plus(totalDuration);
+
+        if (startTime.isBefore(open) || endTime.isAfter(close)) {
+            throw new InvalidRequestException("Appointment is outside of opening hours.");
         }
 
         LocalDateTime dayStart = start.toLocalDate().atStartOfDay();
@@ -211,15 +293,19 @@ public class SchedulingService {
         List<Scheduling> dayAppointments = schedulingRepository
                 .findByBarber_IdAndDateTimeBetween(barberId, dayStart, dayEnd);
 
-        LocalDateTime newEnd = start.plus(duration);
+        LocalDateTime newEnd = start.plus(totalDuration);
 
         for (Scheduling scheduling : dayAppointments) {
             if (scheduling == null || scheduling.getDateTime() == null) continue;
             if (scheduling.getStates() != AppointmentStatus.SCHEDULED) continue;
 
+            int existingDurationInMinutes = scheduling.getBarberService().stream()
+                    .mapToInt(BarberService::getDurationInMinutes)
+                    .sum();
+
             LocalDateTime existingStart = scheduling.getDateTime();
             LocalDateTime existingEnd = scheduling.getDateTime()
-                    .plusMinutes(scheduling.getBarberService().getDurationInMinutes());
+                    .plusMinutes(existingDurationInMinutes);
 
             boolean overlaps = start.isBefore(existingEnd) && newEnd.isAfter(existingStart);
             if (overlaps) {

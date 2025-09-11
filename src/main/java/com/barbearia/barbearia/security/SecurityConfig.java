@@ -24,6 +24,16 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
 
     @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> {})
@@ -35,15 +45,16 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**", "/register").permitAll()
 
                         .requestMatchers("/scheduling/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/opening-hours/weekly-schedule").authenticated()
 
                         .requestMatchers(HttpMethod.GET, "/barber-service").authenticated()
                         .requestMatchers(HttpMethod.GET, "/users/barbers").authenticated()
 
+                        .requestMatchers("/scheduling/barber/").hasRole("BARBER")
+
                         .requestMatchers("/opening-hours/**").hasRole("ADMIN")
                         .requestMatchers("/users/**").hasRole("ADMIN")
                         .requestMatchers("/barber-service/**").hasRole("ADMIN")
-
-                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
