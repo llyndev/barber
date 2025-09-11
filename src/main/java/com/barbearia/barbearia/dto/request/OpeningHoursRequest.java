@@ -5,18 +5,18 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.DayOfWeek;
-import java.time.LocalDate;
 import java.time.LocalTime;
 
 public record OpeningHoursRequest(
         @NotNull(message = "TypeRule cannot be null")
         TypeRule typeRule,
 
+        @NotNull
         DayOfWeek dayOfWeek,
-        LocalDate specificDate,
 
         @NotNull(message = "isOpen flag cannot be null")
         boolean active,
+
         LocalTime openTime,
         LocalTime closeTime
 ) {

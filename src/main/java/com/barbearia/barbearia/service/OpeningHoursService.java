@@ -1,9 +1,12 @@
 package com.barbearia.barbearia.service;
 
 import com.barbearia.barbearia.dto.request.OpeningHoursRequest;
+import com.barbearia.barbearia.dto.request.SpecificDateRequest;
 import com.barbearia.barbearia.dto.response.OpeningHoursResponse;
+import com.barbearia.barbearia.dto.response.SpecificDateResponse;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.mapper.OpeningHoursMapper;
+import com.barbearia.barbearia.mapper.SpecificDateMapper;
 import com.barbearia.barbearia.model.OpeningHours;
 import com.barbearia.barbearia.model.OpeningHours.TypeRule;
 import com.barbearia.barbearia.repository.OpeningHoursRepository;
@@ -23,6 +26,7 @@ public class OpeningHoursService {
 
     private final OpeningHoursRepository openingHoursRepository;
     private final OpeningHoursMapper openingHoursMapper;
+    private final SpecificDateMapper specificDateMapper;
 
     public List<OpeningHoursResponse> listAll() {
         return openingHoursRepository.findAll()
@@ -45,13 +49,19 @@ public class OpeningHoursService {
         }
 
         List<OpeningHours> rulesToSave = request.stream().map(dto -> {
-            OpeningHours entity = openingHoursRepository
-                    .findByTypeRuleAndDayOfWeek(TypeRule.RECURRING, dto.dayOfWeek())
-                    .orElseGet(OpeningHours::new);
 
-            openingHoursMapper.updateEntityFromRequest(entity, dto);
+            Optional<OpeningHours> existingRuleOpt = openingHoursRepository.
+                    findByTypeRuleAndDayOfWeek(TypeRule.RECURRING, dto.dayOfWeek());
+
+            OpeningHours entity;
+            if (existingRuleOpt.isPresent()) {
+                entity = existingRuleOpt.get();
+                openingHoursMapper.updateEntityFromRequest(entity, dto);
+            } else {
+                entity = openingHoursMapper.toEntity(dto);
+            }
+
             entity.setTypeRule(TypeRule.RECURRING);
-
             return entity;
         }).collect(Collectors.toList());
 
@@ -64,40 +74,40 @@ public class OpeningHoursService {
 
     public Optional<OpeningHoursResponse> findForDate(LocalDate date) {
         return openingHoursRepository.
-                findByTypeRuleAndSpecificDate(TypeRule.SPECIFIC_DATA, date)
+                findByTypeRuleAndSpecificDate(TypeRule.SPECIFIC_DATE, date)
                 .or(() -> openingHoursRepository.findByTypeRuleAndDayOfWeek(TypeRule.RECURRING, date.getDayOfWeek()))
                 .map(openingHoursMapper::toResponse);
     }
 
-    public List<OpeningHoursResponse> findSpecificDate() {
-        return openingHoursRepository.findAllByTypeRule(TypeRule.SPECIFIC_DATA)
+    public List<SpecificDateResponse> findSpecificDate() {
+        return openingHoursRepository.findAllByTypeRule(TypeRule.SPECIFIC_DATE)
                 .stream()
-                .map(openingHoursMapper::toResponse)
+                .map(specificDateMapper::toResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public OpeningHoursResponse createSpecificDate(OpeningHoursRequest request) {
+    public SpecificDateResponse createSpecificDate(SpecificDateRequest request) {
         if (request.specificDate() == null) {
             throw new IllegalArgumentException("A specific date is required for an exception rule.");
         }
 
-        OpeningHours newSpecificDate = openingHoursMapper.toEntity(request);
-        newSpecificDate.setTypeRule(TypeRule.SPECIFIC_DATA);
+        OpeningHours newSpecificDate = specificDateMapper.toEntity(request);
+        newSpecificDate.setTypeRule(TypeRule.SPECIFIC_DATE);
 
         OpeningHours saveSpecificDate = openingHoursRepository.save(newSpecificDate);
-        return openingHoursMapper.toResponse(saveSpecificDate);
+        return specificDateMapper.toResponse(saveSpecificDate);
     }
 
     @Transactional
-    public OpeningHoursResponse updateSpecificDate(Long id, OpeningHoursRequest request) {
+    public SpecificDateResponse updateSpecificDate(Long id, SpecificDateRequest request) {
         OpeningHours existingSpecificDate = openingHoursRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Exception rule with id " + id + " not found."));
 
-        openingHoursMapper.updateEntityFromRequest(existingSpecificDate, request);
+        specificDateMapper.updateEntityFromRequest(existingSpecificDate, request);
 
         OpeningHours updatedSpecificDate = openingHoursRepository.save(existingSpecificDate);
-        return openingHoursMapper.toResponse(updatedSpecificDate);
+        return specificDateMapper.toResponse(updatedSpecificDate);
 
     }
 

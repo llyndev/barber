@@ -1,7 +1,9 @@
 package com.barbearia.barbearia.controller;
 
 import com.barbearia.barbearia.dto.request.OpeningHoursRequest;
+import com.barbearia.barbearia.dto.request.SpecificDateRequest;
 import com.barbearia.barbearia.dto.response.OpeningHoursResponse;
+import com.barbearia.barbearia.dto.response.SpecificDateResponse;
 import com.barbearia.barbearia.service.OpeningHoursService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,20 +37,20 @@ public class OpeningHoursController {
     }
 
     @GetMapping("/specific-date")
-    public ResponseEntity<List<OpeningHoursResponse>> findSpecificDate() {
-        List<OpeningHoursResponse> specificDate = openingHoursService.findSpecificDate();
+    public ResponseEntity<List<SpecificDateResponse>> findSpecificDate() {
+        List<SpecificDateResponse> specificDate = openingHoursService.findSpecificDate();
         return ResponseEntity.ok(specificDate);
     }
 
     @PostMapping("/specific-date")
-    public ResponseEntity<OpeningHoursResponse> createSpecificDate(@Valid @RequestBody OpeningHoursRequest request) {
-        OpeningHoursResponse createdSpecificDate = openingHoursService.createSpecificDate(request);
+    public ResponseEntity<SpecificDateResponse> createSpecificDate(@Valid @RequestBody SpecificDateRequest request) {
+        SpecificDateResponse createdSpecificDate = openingHoursService.createSpecificDate(request);
         return ResponseEntity.ok(createdSpecificDate);
     }
 
     @PutMapping("/specific-date/{id}")
-    public ResponseEntity<OpeningHoursResponse> updateSpecificDate(@PathVariable Long id, @Valid @RequestBody OpeningHoursRequest request) {
-        OpeningHoursResponse updateSpecificDate = openingHoursService.updateSpecificDate(id, request);
+    public ResponseEntity<SpecificDateResponse> updateSpecificDate(@PathVariable Long id, @Valid @RequestBody SpecificDateRequest request) {
+        SpecificDateResponse updateSpecificDate = openingHoursService.updateSpecificDate(id, request);
         return ResponseEntity.ok(updateSpecificDate);
     }
 

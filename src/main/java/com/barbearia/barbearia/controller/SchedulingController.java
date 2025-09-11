@@ -56,8 +56,11 @@ public class SchedulingController {
     }
 
     @GetMapping("/available-times")
-    public List<LocalTime> getAvailableTimes(@RequestParam LocalDate date, @RequestParam Long barberServiceId, @RequestParam Long barberId) {
-        return schedulingService.getAvailableSlots(date, barberServiceId, barberId);
+    public List<LocalTime> getAvailableTimes(
+            @RequestParam LocalDate date,
+            @RequestParam List<Long> barberServiceIds,
+            @RequestParam Long barberId) {
+        return schedulingService.getAvailableSlots(date, barberServiceIds, barberId);
     }
 
     @PostMapping
