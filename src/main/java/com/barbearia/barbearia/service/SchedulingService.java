@@ -104,13 +104,6 @@ public class SchedulingService {
                     "FORBIDDEN");
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime limit = scheduling.getDateTime().minusHours(24);
-
-        if (now.isAfter(limit)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "FORBIDDEN");
-        }
-
         scheduling.setStates(AppointmentStatus.CANCELED);
         schedulingRepository.save(scheduling);
     }
