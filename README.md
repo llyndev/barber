@@ -2,9 +2,21 @@
 
 API de backend para um sistema de agendamento de barbearia, desenvolvida com Java e Spring Boot.
 
+---
+
+## Frontend (barberfront)
+
+A interface de usuário para esta API foi desenvolvida como um projeto separado, utilizando [**React, Typescript**].
+
+**Repositório do Frontend:** [Barber - Frontend React](https://github.com/llyndev/barberfront)
+
+---
+
 ## Descrição
 
 Este projeto é uma API RESTful projetada para gerenciar os agendamentos de uma barbearia. Ele permite que os clientes agendem horários com barbeiros, e que os adiministradores gerenciem os serviços, usuários e horários de funcionamento.
+
+---
 
 ## Funcionalidades
 
@@ -20,6 +32,8 @@ Este projeto é uma API RESTful projetada para gerenciar os agendamentos de uma 
   * Verificação de disponibilidade de horários em tempo real.
 * **Consulta de Horários Disponíveis:** Endpoint para consultar os horários livres com base no barbeiro, serviços e data desejada.
 
+---
+
 ## Tecnologias Utilizadas
 
 * **Java 21**
@@ -31,15 +45,21 @@ Este projeto é uma API RESTful projetada para gerenciar os agendamentos de uma 
 * **Lombok:** Redução de boilerplate code.
 * **JWT (JSON Web Tokens):** Para autenticação segura.
 
+---
+
 ## Endpoints da API
 
 A seguir então os principais endpoints da API:
+
+---
 
 ### Autenticação
 
 * `POST auth/register` - Registrar um novo usuário.
 * `POST auth/login` - Autentica um usuário e retorna um token JWT.
 * `POST auth/me` - Retorna as informações do usuário autenticado.'
+
+---
 
 ### Usuários
 
@@ -50,6 +70,8 @@ A seguir então os principais endpoints da API:
 * `PATCH /users/{id}/role` - Atualiza a role de um usuário (Admin).
 * `DELETE /users/{id}` - Remove um usuário (Admin).
 
+---
+
 ### Serviços da Barbearia
 
 * `GET /barber-services` - Lista todos os serviços.
@@ -57,6 +79,8 @@ A seguir então os principais endpoints da API:
 * `POST /barber-services` - Cria um novo serviço (Admin).
 * `PUT /barber-services/{id}` - Atualiza um serviço (Admin).
 * `DELETE /barber-services/{id}` - Remove um serviço (Admin).
+
+---
 
 ### Horários de Funcionamento
 
@@ -66,6 +90,8 @@ A seguir então os principais endpoints da API:
 * `POST /opening-hours/specific-date` - Cria uma nova regra de exceção (Admin).
 * `PUT /opening-hours/specific-date/{id}` - Atualiza uma regra de exceção (Admin).
 * `DELETE /opening-hours/specific-date/{id}` - Remove uma regra de exceção (Admin).
+
+---
 
 ### Agendamentos
 
@@ -80,6 +106,8 @@ A seguir então os principais endpoints da API:
 * `POST /scheduling/barber/{id}` - Cancela um agendamento (Barbeiro).
 * `PUT /scheduling/barber/completed/{id}` - Marca um agendamento como concluído.
 * `POST /scheduling/barber/add-service/{id}` - Adiciona um serviço a um agendamento existente.
+
+---
 
 ## Como Executar o Projeto
 
