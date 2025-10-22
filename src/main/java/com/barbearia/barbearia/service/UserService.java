@@ -24,8 +24,11 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
-    public List<AppUser> findAll() {
-        return userRepository.findAll();
+    public List<UserResponse> findAll() {
+        List<AppUser> users = userRepository.findAll();
+        return users.stream()
+                .map(userMapper::toDTO)
+                .toList();
     }
 
     public UserResponse getByEmail(String email) {
