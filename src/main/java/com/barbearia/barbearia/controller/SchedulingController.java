@@ -81,25 +81,17 @@ public class SchedulingController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancelClient(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
         Long clientId = userDetails.user().getId();
 
-        schedulingService.cancelClient(id, clientId);
+        schedulingService.cancelClient(id, clientId, userDetails);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/barber/{id}")
     @PreAuthorize("hasRole('BARBER')")
     public ResponseEntity<Void> cancelBarber(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails, @RequestBody ReasonRequest reasonRequest) {
+        schedulingService.cancelBarber(id, userDetails.user().getId(), reasonRequest.reason(), userDetails);
 
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        schedulingService.cancelBarber(id, userDetails.user().getId(), reasonRequest.reason());
         return ResponseEntity.noContent().build();
     }
 
