@@ -13,8 +13,11 @@ import com.barbearia.barbearia.model.Scheduling;
 import com.barbearia.barbearia.model.AppointmentStatus;
 import com.barbearia.barbearia.repository.BarberServiceRepository;
 import com.barbearia.barbearia.repository.SchedulingRepository;
+import com.barbearia.barbearia.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -95,9 +98,14 @@ public class SchedulingService {
     }
 
     @Transactional
-    public void cancelClient(Long schedulingId, Long clientId) {
+    public void cancelClient(Long schedulingId, Long clientId, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
         Scheduling scheduling = schedulingRepository.findById(schedulingId)
                 .orElseThrow( () -> new ResourceNotFoundException("Scheduling not found"));
+
+        if (userDetails == null) {
+            throw new RuntimeException("User not found");
+        }
 
         if (!scheduling.getUser().getId().equals(clientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -109,10 +117,14 @@ public class SchedulingService {
     }
 
     @Transactional
-    public void cancelBarber(Long schedulingId, Long barberId, String reason) {
+    public void cancelBarber(Long schedulingId, Long barberId, String reason, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         Scheduling scheduling = schedulingRepository.findById(schedulingId).orElseThrow(
                 () -> new ResourceNotFoundException("Scheduling not found")
         );
+
+        if (userDetails == null) {
+            throw new RuntimeException("User not found");
+        }
 
         if (!scheduling.getBarber().getId().equals(barberId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
