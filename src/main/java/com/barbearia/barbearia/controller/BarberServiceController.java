@@ -2,7 +2,6 @@ package com.barbearia.barbearia.controller;
 
 import com.barbearia.barbearia.dto.request.BarberServiceRequest;
 import com.barbearia.barbearia.dto.response.BarberServiceResponse;
-import com.barbearia.barbearia.mapper.BarberServiceMapper;
 import com.barbearia.barbearia.service.BarberServiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,7 +16,6 @@ import java.util.List;
 public class BarberServiceController {
 
     private final BarberServiceService barberServiceService;
-    private final BarberServiceMapper barberServiceMapper;
 
     @GetMapping
     public List<BarberServiceResponse> getAll() {
