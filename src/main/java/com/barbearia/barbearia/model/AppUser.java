@@ -2,10 +2,7 @@ package com.barbearia.barbearia.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-
+import java.util.List;
 import java.time.LocalDate;
 
 @Entity
@@ -35,15 +32,25 @@ public class AppUser{
 
     @Enumerated(EnumType.STRING)
     @Column(name = "users_role")
-    private Role role;
+    private PlatformRole platformRole;
 
+    private String plantType;
+
+    @Builder.Default
+    @Column(nullable = true)
+    private boolean isBusinessCreator = false;
+
+    @Builder.Default
     private boolean active = true;
     private boolean blocked = false;
     private LocalDate dateExpirationAccount;
+    
+    @OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
+    private List<UserBusiness> userBusinesses;
 
-    public enum Role {
-        ADMIN,
-        BARBER,
-        CLIENT
+    public enum PlatformRole {
+        CLIENT,
+        BUSINESS_OWNER,
+        PLATFORM_ADMIN
     }
 }

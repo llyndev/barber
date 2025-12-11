@@ -19,7 +19,7 @@ public record RegisterRequest(
         @NotBlank
         String confirmPassword,
 
-        AppUser.Role role
+        AppUser.PlatformRole platformRole
 
 
 ) {

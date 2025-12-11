@@ -11,7 +11,9 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name = "barber_service")
+@Table(name = "barber_service", indexes = {
+        @Index(name = "idx_service_business", columnList = "business_id")
+})
 public class BarberService {
 
     @Id
@@ -27,6 +29,13 @@ public class BarberService {
     @Column(name = "duration_in_minutes")
     private Integer durationInMinutes;
 
-    @Column(name = "price_service")
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
+
+    @Column(name = "price_service", nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
+
+    @Column(name = "active")
+    private boolean active;
 }

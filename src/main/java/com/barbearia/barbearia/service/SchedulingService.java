@@ -9,14 +9,20 @@ import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.mapper.SchedulingMapper;
 import com.barbearia.barbearia.model.AppUser;
 import com.barbearia.barbearia.model.BarberService;
+import com.barbearia.barbearia.model.Business;
+import com.barbearia.barbearia.model.BusinessRole;
 import com.barbearia.barbearia.model.Scheduling;
 import com.barbearia.barbearia.model.AppointmentStatus;
 import com.barbearia.barbearia.repository.BarberServiceRepository;
+import com.barbearia.barbearia.repository.BusinessRepository;
 import com.barbearia.barbearia.repository.SchedulingRepository;
+import com.barbearia.barbearia.repository.UserBusinessRepository;
 import com.barbearia.barbearia.security.UserDetailsImpl;
+import com.barbearia.barbearia.tenant.BusinessContext;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +35,7 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SchedulingService {
@@ -36,71 +43,119 @@ public class SchedulingService {
     private static final int SLOT_MINUTES = 15;
 
     private final UserService userService;
-    private final BarberServiceService barberServiceService;
     private final SchedulingRepository schedulingRepository;
     private final BarberServiceRepository barberServiceRepository;
     private final OpeningHoursService openingHoursService;
-    private final SchedulingMapper schedulingMapper;
+    private final BusinessRepository businessRepository;
+    private final UserBusinessRepository userBusinessRepository;
+
+    private Long getBusinessIdFromContext() {
+        String businessIdStr = BusinessContext.getBusinessId();
+        if (businessIdStr == null || businessIdStr.isBlank()) {
+            throw new IllegalStateException("Business ID not found.");
+        }
+
+        return Long.parseLong(businessIdStr);
+    }
+
+    private Business getBusinessEntityFromContext() {
+        Long businessId = getBusinessIdFromContext();
+        return businessRepository.findById(businessId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business not foun"));
+    }
 
     @Transactional(readOnly = true)
     public List<SchedulingResponse> listAll() {
-        List<Scheduling> scheduling = schedulingRepository.findAll();
+        Long businessId = getBusinessIdFromContext();
+        List<Scheduling> scheduling = schedulingRepository.findAllByBusinessId(businessId);
+        return SchedulingMapper.toResponseList(scheduling);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SchedulingResponse> findAllByBusinessId(Long businessId) {
+        List<Scheduling> scheduling = schedulingRepository.findAllByBusinessId(businessId);
         return SchedulingMapper.toResponseList(scheduling);
     }
 
     @Transactional(readOnly = true)
     public SchedulingResponse getById(Long id) {
-        Scheduling scheduling = schedulingRepository.findById(id).orElseThrow(
+        Long businessId = getBusinessIdFromContext();
+        Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(id, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Scheduling not found"));
         return SchedulingMapper.toResponse(scheduling);
     }
 
     @Transactional(readOnly = true)
     public List<SchedulingResponse> getByClientId(Long id) {
-        List<Scheduling> scheduling = schedulingRepository.findByUser_Id(id);
+        Long businessId = getBusinessIdFromContext();
+        List<Scheduling> scheduling = schedulingRepository.findByUser_IdAndBusinessId(id, businessId);
         return SchedulingMapper.toResponseList(scheduling);
     }
 
     public List<SchedulingResponse> getByBarberId(Long id) {
-        List<Scheduling> scheduling = schedulingRepository.findByBarber_Id(id);
+        Long businessId = getBusinessIdFromContext();
+        List<Scheduling> scheduling = schedulingRepository.findByBarber_IdAndBusinessId(id, businessId);
         return SchedulingMapper.toResponseList(scheduling);
     }
 
     public List<SchedulingResponse> getByDateTime(LocalDateTime start, LocalDateTime end) {
-        List<Scheduling> scheduling = schedulingRepository.findByDateTimeBetween(start, end);
+        Long businessId = getBusinessIdFromContext();
+        List<Scheduling> scheduling = schedulingRepository.findByDateTimeBetweenAndBusinessId(start, end, businessId);
         return SchedulingMapper.toResponseList(scheduling);
     }
 
     @Transactional
     public Scheduling createScheduling(Long clientId, SchedulingRequest request) {
+        log.info("Creating scheduling for client {} with barber {} at {}", 
+                clientId, request.barberId(), request.dateTime());
+
+        Long businessId = getBusinessIdFromContext();
+        Business business = getBusinessEntityFromContext();
+
         AppUser user = userService.getEntityById(clientId);
         AppUser barber = userService.getEntityById(request.barberId());
 
+        boolean isBarberInThisBusiness = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barber.getId(), businessId, BusinessRole.BARBER);
+
+        if (!isBarberInThisBusiness) {
+            throw new ResourceNotFoundException("Barber invalid");
+        }
+
+
         List<BarberService> barberService = barberServiceRepository.findAllById(request.barberServiceIds());
-        if (barberService.isEmpty()) {
+
+        List<BarberService> validServices = barberService.stream()
+                .filter(service -> service.getBusiness().getId().equals(businessId))
+                .toList();
+
+        if (barberService.isEmpty() || validServices.size() != request.barberServiceIds().size()) {
             throw new ResourceNotFoundException("Barber service not found");
         }
 
         LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
-        ensureAvailableOrThrow(barber.getId(), barberService, start);
+        ensureAvailableOrThrow(barber.getId(), validServices, start, businessId);
 
         Scheduling sched = new Scheduling();
         sched.setUser(user);
         sched.setBarber(barber);
-        sched.setBarberService(barberService);
+        sched.setBarberService(validServices);
         sched.setDateTime(request.dateTime());
         sched.setStates(AppointmentStatus.SCHEDULED);
+        sched.setBusiness(business);
 
-        schedulingRepository.save(sched);
+        Scheduling saved = schedulingRepository.save(sched);
+        log.info("Scheduling created successfully with ID: {}", saved.getId());
 
-        return sched;
+        return saved;
 
     }
 
     @Transactional
     public void cancelClient(Long schedulingId, Long clientId, @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
-        Scheduling scheduling = schedulingRepository.findById(schedulingId)
+        Long businessId = getBusinessIdFromContext();
+
+        Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId)
                 .orElseThrow( () -> new ResourceNotFoundException("Scheduling not found"));
 
         if (userDetails == null) {
@@ -118,17 +173,19 @@ public class SchedulingService {
 
     @Transactional
     public void cancelBarber(Long schedulingId, Long barberId, String reason, @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        Scheduling scheduling = schedulingRepository.findById(schedulingId).orElseThrow(
+
+        Long businessId = getBusinessIdFromContext();
+
+        Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Scheduling not found")
         );
 
-        if (userDetails == null) {
-            throw new RuntimeException("User not found");
-        }
+        boolean isManagerOrOwner = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.OWNER) || userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.MANAGER);
 
-        if (!scheduling.getBarber().getId().equals(barberId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    "FORBIDDEN");
+        boolean isAssignedBarber = scheduling.getBarber().getId().equals(barberId);
+
+        if (!isManagerOrOwner && !isAssignedBarber) {
+            throw new SecurityException("Unauthorized");
         }
 
         scheduling.setStates(AppointmentStatus.CANCELED);
@@ -137,11 +194,20 @@ public class SchedulingService {
     }
 
     public Scheduling endService(Long schedulingId, EndSchedulingRequest endSchedulingRequest, Long barberId) {
+        Long businessId = getBusinessIdFromContext();
 
-        Scheduling scheduling = schedulingRepository.findById(schedulingId).orElseThrow(
+        Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Scheduling not found")
         );
 
+        boolean isManagerOrOwner = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.OWNER) || userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.MANAGER);
+
+        boolean isAssignedBarber = scheduling.getBarber().getId().equals(barberId);
+
+        if (!isManagerOrOwner && !isAssignedBarber) {
+            throw new SecurityException("Unauthorized");
+        }
+        
         if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
             throw new InvalidRequestException("Bad request");
         }
@@ -157,12 +223,18 @@ public class SchedulingService {
     @Transactional
     public Scheduling addService(Long schedulingId, List<Long> newServiceIds) {
 
-        Scheduling scheduling = schedulingRepository.findById(schedulingId).orElseThrow(
+        Long businessId = getBusinessIdFromContext();
+
+        Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Scheduling not found")
         );
 
         List<BarberService> newService = barberServiceRepository.findAllById(newServiceIds);
-        if (newService.size() != newServiceIds.size()) {
+        List<BarberService> validServices = newService.stream()
+                .filter(services -> services.getBusiness().getId().equals(businessId))
+                .toList();
+
+        if (newService.isEmpty() || validServices.size() != newServiceIds.size()) {
             throw new ResourceNotFoundException("Not found");
         }
 
@@ -177,17 +249,24 @@ public class SchedulingService {
     }
 
     public List<LocalTime> getAvailableSlots(LocalDate date, List<Long> barberServiceIds, Long barberId) {
+
+        Long businessId = getBusinessIdFromContext();
+
         if (barberServiceIds == null || barberServiceIds.isEmpty()) {
             return List.of();
         }
 
-        List<BarberService> barberService = barberServiceRepository.findAllById(barberServiceIds);
-        if (barberService.size() != barberServiceIds.size()) {
+        List<BarberService> barberServices = barberServiceRepository.findAllById(barberServiceIds);
+        List<BarberService> validServices = barberServices.stream()
+                .filter(services -> services.getBusiness().getId().equals(businessId))
+                .toList();
+
+        if (validServices.size() != barberServiceIds.size()) {
             throw new ResourceNotFoundException("One or more services not found.");
         }
 
-        int totalDurationInMinutes = barberService.stream()
-                .mapToInt(BarberService::getDurationInMinutes)
+        int totalDurationInMinutes = validServices.stream()
+                .mapToInt(s -> s.getDurationInMinutes() != null ? s.getDurationInMinutes() : 0)
                 .sum();
 
         final Duration durationService = Duration.ofMinutes(totalDurationInMinutes);
@@ -211,7 +290,8 @@ public class SchedulingService {
 
         LocalDateTime startOfDay = date.atStartOfDay();
         LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
-        List<Scheduling> appointments = schedulingRepository.findByBarber_IdAndDateTimeBetween(barberId, startOfDay, endOfDay);
+
+        List<Scheduling> appointments = schedulingRepository.findByBarber_IdAndDateTimeBetweenAndBusinessId(barberId, startOfDay, endOfDay, businessId);
 
         Set<LocalTime> occupied = new HashSet<>();
 
@@ -259,7 +339,7 @@ public class SchedulingService {
                 .collect(Collectors.toList());
     }
 
-    private void ensureAvailableOrThrow(Long barberId, List<BarberService> barberService, LocalDateTime start) {
+    private void ensureAvailableOrThrow(Long barberId, List<BarberService> barberService, LocalDateTime start, Long businessId) {
         if (start == null) {
             throw new InvalidRequestException("Appointment details and time are mandatory.");
         }
@@ -281,7 +361,7 @@ public class SchedulingService {
         LocalTime close = hoursOpt.get().closeTime();
 
         int totalDurationInMinutes = barberService.stream()
-                .mapToInt(BarberService::getDurationInMinutes)
+                .mapToInt(s -> s.getDurationInMinutes() != null ? s.getDurationInMinutes() : 0)
                 .sum();
 
         Duration totalDuration = Duration.ofMinutes(totalDurationInMinutes);
@@ -295,8 +375,9 @@ public class SchedulingService {
 
         LocalDateTime dayStart = start.toLocalDate().atStartOfDay();
         LocalDateTime dayEnd = start.toLocalDate().atTime(LocalTime.MAX);
+
         List<Scheduling> dayAppointments = schedulingRepository
-                .findByBarber_IdAndDateTimeBetween(barberId, dayStart, dayEnd);
+                .findByBarber_IdAndDateTimeBetweenAndBusinessId(barberId, dayStart, dayEnd, businessId);
 
         LocalDateTime newEnd = start.plus(totalDuration);
 

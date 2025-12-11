@@ -4,6 +4,8 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
@@ -29,6 +31,14 @@ public class JwtUtil {
 
     private final long EXPIRATION_MS = 1000 * 60 * 60 * 12;
 
+    public String resolveToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        return null;
+    }
+
     public String generateToken(UserDetails userDetails) {
         Date now = new Date();
         Date exp = new Date(now.getTime() + EXPIRATION_MS);
@@ -44,6 +54,21 @@ public class JwtUtil {
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String emailFromToken = extractEmail(token);
         return (emailFromToken.equals(userDetails.getUsername())) && !isTokenExpired(token);
+    }
+
+    public boolean validate(String token) {
+        try {
+            extractAllClaims(token);
+            return !isTokenExpired(token);
+        } catch (Exception e){
+            return false;
+        }
+    }
+
+    public String getClaim(String token, String claimName) {
+        Claims claims = extractAllClaims(token);
+        Object v = claims.get(claimName);
+        return v != null ? v.toString() : null;
     }
 
     public String extractEmail(String token) {

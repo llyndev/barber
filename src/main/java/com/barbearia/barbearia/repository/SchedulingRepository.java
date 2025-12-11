@@ -9,6 +9,18 @@ import java.util.Optional;
 
 public interface SchedulingRepository extends JpaRepository<Scheduling, Long> {
 
+    Optional<Scheduling> findByIdAndBusinessId(Long id, Long businessId);
+
+    List<Scheduling> findAllByBusinessId(Long businessId);
+    
+    List<Scheduling> findByUser_IdAndBusinessId(Long userId, Long businessId);
+
+    List<Scheduling> findByBarber_IdAndBusinessId(Long barberId, Long businessId);
+
+    List<Scheduling> findByDateTimeBetweenAndBusinessId(LocalDateTime dateTimeAfter, LocalDateTime dateTimeBefore, Long businessId);
+
+    List<Scheduling> findByBarber_IdAndDateTimeBetweenAndBusinessId(Long barberId, LocalDateTime start, LocalDateTime end, Long businessId);
+
     List<Scheduling> findByUser_Id(Long id);
 
     Optional<Scheduling> findByBarber_IdAndDateTime(Long barberId, LocalDateTime dateTime);

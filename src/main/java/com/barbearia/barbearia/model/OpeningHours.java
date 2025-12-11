@@ -42,6 +42,10 @@ public class OpeningHours {
     @Column(name = "close_time")
     private LocalTime closeTime;
 
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_id", nullable = false)
+    private Business business;
+
     public enum TypeRule {
         RECURRING,
         SPECIFIC_DATE

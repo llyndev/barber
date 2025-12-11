@@ -4,7 +4,6 @@ import com.barbearia.barbearia.model.AppUser;
 import com.barbearia.barbearia.repository.UserRepository;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
