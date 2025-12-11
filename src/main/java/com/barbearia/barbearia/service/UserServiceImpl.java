@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class UserServiceImpl implements RegisterService{
+public class UserServiceImpl implements RegisterService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -28,7 +28,7 @@ public class UserServiceImpl implements RegisterService{
         newUser.setName(request.name());
         newUser.setEmail(request.email());
         newUser.setTelephone(request.telephone());
-        newUser.setRole(AppUser.Role.CLIENT);
+        newUser.setPlatformRole(AppUser.PlatformRole.CLIENT);
         newUser.setPassword(passwordEncoder.encode(request.password()));
 
         userRepository.save(newUser);

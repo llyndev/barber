@@ -1,12 +1,13 @@
 package com.barbearia.barbearia.controller;
 
+import com.barbearia.barbearia.dto.request.PromoteToOwnerRequest;
 import com.barbearia.barbearia.dto.request.UpdateRoleRequest;
 import com.barbearia.barbearia.dto.request.UserRequest;
 import com.barbearia.barbearia.dto.response.UserResponse;
-import com.barbearia.barbearia.mapper.UserMapper;
 import com.barbearia.barbearia.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -44,9 +45,17 @@ public class UserController {
         return ResponseEntity.ok(userService.update(id, userRequest));
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping("/{id}/role")
     public ResponseEntity<UserResponse> updateRole(@PathVariable Long id, @RequestBody UpdateRoleRequest role) {
         return ResponseEntity.ok(userService.updateRole(id, role));
+    }
+
+    @PostMapping("/{id}/promote-to-owner")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ResponseEntity<UserResponse> promoteToOwner(
+            @PathVariable Long id, 
+            @RequestBody PromoteToOwnerRequest request) {
+        return ResponseEntity.ok(userService.promoteToOwner(id, request));
     }
 
 }

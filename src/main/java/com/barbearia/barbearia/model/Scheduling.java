@@ -53,4 +53,8 @@ public class Scheduling {
     @Column(name = "payment_method")
     private PaymentMethod paymentMethod;
 
+    @ManyToOne
+    @JoinColumn(name = "business_id")
+    private Business business;
+
 }

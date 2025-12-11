@@ -6,8 +6,10 @@ import com.barbearia.barbearia.dto.request.ReasonRequest;
 import com.barbearia.barbearia.dto.request.SchedulingRequest;
 import com.barbearia.barbearia.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.mapper.SchedulingMapper;
+import com.barbearia.barbearia.model.Business;
 import com.barbearia.barbearia.model.Scheduling;
 import com.barbearia.barbearia.security.UserDetailsImpl;
+import com.barbearia.barbearia.service.BusinessService;
 import com.barbearia.barbearia.service.SchedulingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +31,31 @@ import java.util.List;
 public class SchedulingController {
 
     private final SchedulingService schedulingService;
+    private final BusinessService businessService;
 
     @GetMapping
-    public List<SchedulingResponse> schedulingList() {
-        return schedulingService.listAll();
+    public ResponseEntity<List<SchedulingResponse>> schedulingList(
+        @RequestHeader("X-Business-Slug") String businessSlug,
+        @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        Business business = businessService.validateOwnerBySlugAndGetBusiness(businessSlug, userDetails.user().getId());
+ 
+        List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(business.getId());
+
+        return ResponseEntity.ok(schedulings);
+    }
+
+    @GetMapping("/business")
+    public ResponseEntity<List<SchedulingResponse>> listSchedulings(
+            @RequestHeader("X-Business-Slug") String businessSlug,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        
+        // Valida se o usuário autenticado é o owner da barbearia e retorna a entidade Business
+        Business business = businessService.validateOwnerBySlugAndGetBusiness(businessSlug, userDetails.user().getId());
+        
+        // Retorna os agendamentos da barbearia
+        List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(business.getId());
+        return ResponseEntity.ok(schedulings);
     }
 
     @GetMapping("/{id}")
@@ -89,14 +112,32 @@ public class SchedulingController {
 
     @PostMapping("/barber/{id}")
     @PreAuthorize("hasRole('BARBER')")
-    public ResponseEntity<Void> cancelBarber(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails, @RequestBody ReasonRequest reasonRequest) {
+    public ResponseEntity<Void> cancelBarber(
+            @PathVariable Long id, 
+            @AuthenticationPrincipal UserDetailsImpl userDetails, 
+            @RequestBody ReasonRequest reasonRequest,
+            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
+        
+        if (businessSlug != null && !businessSlug.isBlank()) {
+            businessService.validateOwnerBySlug(businessSlug, userDetails.user().getId());
+        }
+        
         schedulingService.cancelBarber(id, userDetails.user().getId(), reasonRequest.reason(), userDetails);
 
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/barber/completed/{id}")
-    public ResponseEntity<SchedulingResponse> completedScheduling(@PathVariable Long id, @RequestBody EndSchedulingRequest request, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+    public ResponseEntity<SchedulingResponse> completedScheduling(
+            @PathVariable Long id, 
+            @Valid @RequestBody EndSchedulingRequest request, 
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
+        
+        if (businessSlug != null && !businessSlug.isBlank()) {
+            businessService.validateOwnerBySlug(businessSlug, userDetails.user().getId());
+        }
+        
         Long barberId = userDetails.user().getId();
 
         Scheduling scheduling = schedulingService.endService(id, request, barberId);
@@ -107,7 +148,16 @@ public class SchedulingController {
     }
 
     @PostMapping("/barber/add-service/{id}")
-    public ResponseEntity<SchedulingResponse> addService(@PathVariable Long id, @RequestBody AddServiceRequest request) {
+    public ResponseEntity<SchedulingResponse> addService(
+            @PathVariable Long id, 
+            @Valid @RequestBody AddServiceRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
+        
+        if (businessSlug != null && !businessSlug.isBlank()) {
+            businessService.validateOwnerBySlug(businessSlug, userDetails.user().getId());
+        }
+        
         Scheduling scheduling = schedulingService.addService(id, request.barberServiceIds());
 
         SchedulingResponse response = SchedulingMapper.toResponse(scheduling);
