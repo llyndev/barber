@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -16,6 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import com.barbearia.barbearia.tenant.ContextFilter;
 
 @Configuration
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -42,24 +44,27 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**", "/register").permitAll()
+                        .requestMatchers("/register/complete").permitAll()
+                        .requestMatchers("/leads").permitAll()
+                        .requestMatchers("/business", "/business/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/barber-service", "/barber-service/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/users/barbers").permitAll()
+                        .requestMatchers("/scheduling/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
 
-                        .requestMatchers("/scheduling/**").authenticated()
                         .requestMatchers(HttpMethod.GET, "/opening-hours/weekly-schedule").authenticated()
 
-                        .requestMatchers(HttpMethod.GET, "/barber-service").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/users/barbers").authenticated()
                         .requestMatchers("/my-business/**").authenticated()
                         .requestMatchers("/my-invitations/**").authenticated()
-
-                        .requestMatchers("/business", "/business/**").authenticated()
 
                         .requestMatchers("/scheduling/barber/").hasRole("BARBER")
 
                         .requestMatchers("/opening-hours/**").authenticated()
+                        .requestMatchers("/api/v1/inventory" , "/api/v1/inventory/**").authenticated()
                         .requestMatchers("/barber-service/**").authenticated()
 
                         .requestMatchers("/users/**").hasRole("PLATFORM_ADMIN")
-                        
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(contextFilter, JwtFilter.class);
