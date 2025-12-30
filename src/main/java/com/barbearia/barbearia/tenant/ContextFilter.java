@@ -6,10 +6,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.barbearia.barbearia.model.Business;
-import com.barbearia.barbearia.model.UserBusiness;
-import com.barbearia.barbearia.repository.BusinessRepository;
-import com.barbearia.barbearia.repository.UserBusinessRepository;
+import com.barbearia.barbearia.modules.business.model.Business;
+import com.barbearia.barbearia.modules.business.model.UserBusiness;
+import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
+import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 
 import jakarta.servlet.FilterChain;

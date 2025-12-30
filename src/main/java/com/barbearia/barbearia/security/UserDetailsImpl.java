@@ -1,6 +1,6 @@
 package com.barbearia.barbearia.security;
 
-import com.barbearia.barbearia.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.AppUser;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -27,7 +27,10 @@ public record UserDetailsImpl(AppUser user) implements UserDetails {
 
     @Override
     public boolean isAccountNonExpired(){
-        return true;
+        if (user.getDateExpirationAccount() == null) {
+            return true; // Sem data definida, não expira
+        }
+        return user.getDateExpirationAccount().isAfter(java.time.LocalDate.now());
     }
 
     @Override
