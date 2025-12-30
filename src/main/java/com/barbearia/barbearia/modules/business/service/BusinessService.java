@@ -18,6 +18,7 @@ import com.barbearia.barbearia.modules.business.mapper.BusinessMapper;
 import com.barbearia.barbearia.modules.common.address.model.Address;
 import com.barbearia.barbearia.modules.business.model.Business;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
+import com.barbearia.barbearia.modules.business.model.PlanType;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
@@ -97,6 +98,19 @@ public class BusinessService {
 
         if (!hasActivePlan) {
             throw new SecurityException("Você precisa ter um plano ativo para criar uma barbearia. Entre em contato com o suporte.");
+        }
+
+        // Valida limite de barbearias do plano
+        PlanType userPlan;
+        try {
+            userPlan = PlanType.valueOf(creator.getPlantType());
+        } catch (Exception e) {
+            throw new IllegalStateException("Usuário sem tipo de plano definido.");
+        }
+
+        long ownedBusinesses = userBusinessRepository.countByUserIdAndRole(creator.getId(), BusinessRole.OWNER);
+        if (ownedBusinesses >= userPlan.getMaxBusiness()) {
+            throw new IllegalStateException("Seu plano " + userPlan.name() + " permite apenas " + userPlan.getMaxBusiness() + " barbearia(s). Faça upgrade do plano para criar mais.");
         }
 
         Business business = businessMapper.toRequest(request);
