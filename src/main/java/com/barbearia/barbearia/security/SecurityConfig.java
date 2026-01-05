@@ -46,9 +46,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/", "/error", "/csrf").permitAll()
                         
                         // Public Authentication Endpoints
-                        .requestMatchers("/auth/**", "/register", "/register/complete").permitAll()
+                        .requestMatchers("/auth/**", "/register", "/register/**").permitAll()
                         
                         // Public Business Information
                         .requestMatchers(HttpMethod.GET, "/business", "/business/{id}", "/business/slug/{slug}").permitAll()
