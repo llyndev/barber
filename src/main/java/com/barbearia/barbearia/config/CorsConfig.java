@@ -14,7 +14,7 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("https://barbercuttz.me", "http://barbercutzz.netlify.app", "http://localhost:3000", "https://www.barbercuttz.me"));
+        config.setAllowedOrigins(List.of("https://barbercuttz.me", "http://barbercuttz.netlify.app", "http://localhost:3000", "https://www.barbercuttz.me"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "TRACE", "CONNECT", "PATCH"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With", "X-Business-Slug", "X-Tenant-Id"));
         config.setAllowCredentials(true);
