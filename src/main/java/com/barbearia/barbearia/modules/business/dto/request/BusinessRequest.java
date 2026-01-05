@@ -13,10 +13,14 @@ public record BusinessRequest(
         @Size(max = 500, message = "Description must not exceed 500 characters")
         String description,
         
+        String telephone,
+        
         @Size(max = 120, message = "Slug must not exceed 120 characters")
         String slug,
 
         List<String> amenities,
+
+        String instagramLink,
         
         @Size(min = 8, max = 8, message = "CEP must have 8 digits")
         String cep,

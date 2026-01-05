@@ -14,6 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import org.springframework.web.cors.CorsConfigurationSource;
+
 import com.barbearia.barbearia.tenant.ContextFilter;
 
 @Configuration
@@ -23,6 +25,7 @@ public class SecurityConfig {
 
     private final JwtFilter jwtFilter;
     private final ContextFilter contextFilter;
+    private final CorsConfigurationSource corsConfigurationSource;
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
@@ -37,33 +40,42 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> {})
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/auth/**", "/register").permitAll()
-                        .requestMatchers("/register/complete").permitAll()
-                        .requestMatchers("/leads").permitAll()
-                        .requestMatchers("/business", "/business/**").permitAll()
+                        
+                        // Public Authentication Endpoints
+                        .requestMatchers("/auth/**", "/register", "/register/complete").permitAll()
+                        
+                        // Public Business Information
+                        .requestMatchers(HttpMethod.GET, "/business", "/business/{id}", "/business/slug/{slug}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/barber-service", "/barber-service/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/barbers").permitAll()
-                        .requestMatchers("/scheduling/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/opening-hours/status").permitAll()
+                        
+                        // Public Scheduling Information (Availability)
+                        .requestMatchers(HttpMethod.GET, "/scheduling/available-times").permitAll()
+                        
+                        // Public Resources
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        .requestMatchers("/leads").permitAll()
 
-                        .requestMatchers(HttpMethod.GET, "/opening-hours/weekly-schedule").authenticated()
-
+                        // Protected Endpoints
+                        .requestMatchers("/scheduling/**").authenticated()
+                        .requestMatchers("/business/**").authenticated()
                         .requestMatchers("/my-business/**").authenticated()
                         .requestMatchers("/my-invitations/**").authenticated()
-
-                        .requestMatchers("/scheduling/barber/").hasRole("BARBER")
-
                         .requestMatchers("/opening-hours/**").authenticated()
-                        .requestMatchers("/api/v1/inventory" , "/api/v1/inventory/**").authenticated()
+                        .requestMatchers("/api/v1/inventory/**").authenticated()
                         .requestMatchers("/barber-service/**").authenticated()
-
+                        .requestMatchers("/orders/**").authenticated()
+                        
+                        // Role Based
                         .requestMatchers("/users/**").hasRole("PLATFORM_ADMIN")
+                        
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

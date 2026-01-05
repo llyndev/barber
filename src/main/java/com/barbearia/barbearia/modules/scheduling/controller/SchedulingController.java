@@ -133,9 +133,13 @@ public class SchedulingController {
             @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
 
         if (businessSlug != null && !businessSlug.isBlank()) {
+            businessService.validateBarberBySlug(businessSlug, userDetails.user().getId());
+        }
+
+        if (businessSlug != null && !businessSlug.isBlank()) {
             businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
         }
-        
+
         Long barberId = userDetails.user().getId();
 
         Scheduling scheduling = schedulingService.endService(id, request, barberId);
@@ -161,5 +165,17 @@ public class SchedulingController {
         SchedulingResponse response = SchedulingMapper.toResponse(scheduling);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{id}/start")
+    public ResponseEntity<Void> startAppointment(
+            @PathVariable Long id,
+            @RequestHeader("X-Business-Slug") String businessSlug,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        businessService.validateOwnerOrManagerOrBarberBySlug(businessSlug, userDetails.user().getId());
+
+        schedulingService.startAppointment(id);
+        return ResponseEntity.ok().build();
     }
 }

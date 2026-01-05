@@ -8,6 +8,7 @@ import com.barbearia.barbearia.modules.availability.dto.request.OpeningHoursRequ
 import com.barbearia.barbearia.modules.availability.dto.request.SpecificDateRequest;
 import com.barbearia.barbearia.modules.availability.dto.response.OpeningHoursResponse;
 import com.barbearia.barbearia.modules.availability.dto.response.SpecificDateResponse;
+import com.barbearia.barbearia.modules.availability.dto.response.BusinessStatusResponse;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.availability.mapper.OpeningHoursMapper;
 import com.barbearia.barbearia.modules.availability.mapper.SpecificDateMapper;
@@ -114,6 +115,28 @@ public class OpeningHoursService {
                 findByTypeRuleAndSpecificDateAndBusinessIdAndBarberIsNull(TypeRule.SPECIFIC_DATE, date, businessId)
                 .or(() -> openingHoursRepository.findByTypeRuleAndDayOfWeekAndBusinessIdAndBarberIsNull(TypeRule.RECURRING, date.getDayOfWeek(), businessId))
                 .map(openingHoursMapper::toResponse);
+    }
+
+    public BusinessStatusResponse getBusinessStatus() {
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+
+        Optional<OpeningHoursResponse> todayHours = findForDate(today);
+
+        if (todayHours.isEmpty() || !todayHours.get().active()) {
+            return new BusinessStatusResponse(false, "Closed today", null, null);
+        }
+
+        LocalTime open = todayHours.get().openTime();
+        LocalTime close = todayHours.get().closeTime();
+
+        if (now.isBefore(open)) {
+            return new BusinessStatusResponse(false, "Closed. Opens at " + open, open, close);
+        } else if (now.isAfter(close)) {
+            return new BusinessStatusResponse(false, "Closed. Closed at " + close, open, close);
+        } else {
+            return new BusinessStatusResponse(true, "Open until " + close, open, close);
+        }
     }
 
     public List<SpecificDateResponse> findSpecificDate() {

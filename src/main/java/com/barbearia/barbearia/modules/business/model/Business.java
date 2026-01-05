@@ -29,6 +29,9 @@ public class Business {
     @Column(name = "description", length = 500)
     private String description;
 
+    @Column(name = "telephone")
+    private String telephone;
+
     @Column(nullable = false, length = 120, unique = true)
     private String slug; // subdominio
 
@@ -43,6 +46,9 @@ public class Business {
 
     @Builder.Default
     private boolean active = true;
+
+    @Column(name = "instagram_link")
+    private String instagramLink;
 
     @Column(nullable = true)
     private String businessImage;

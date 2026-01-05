@@ -4,6 +4,7 @@ import com.barbearia.barbearia.modules.availability.dto.request.SpecificDateRequ
 import com.barbearia.barbearia.modules.availability.dto.request.OpeningHoursRequest;
 import com.barbearia.barbearia.modules.availability.dto.response.OpeningHoursResponse;
 import com.barbearia.barbearia.modules.availability.dto.response.SpecificDateResponse;
+import com.barbearia.barbearia.modules.availability.dto.response.BusinessStatusResponse;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.modules.business.service.BusinessService;
 import com.barbearia.barbearia.modules.availability.service.OpeningHoursService;
@@ -26,6 +27,11 @@ public class OpeningHoursController {
     @GetMapping
     public List<OpeningHoursResponse> listAll(@RequestHeader("X-Business-Slug") String businessSlug) {
         return openingHoursService.listAll();
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<BusinessStatusResponse> getBusinessStatus(@RequestHeader("X-Business-Slug") String businessSlug) {
+        return ResponseEntity.ok(openingHoursService.getBusinessStatus());
     }
 
     @GetMapping("/weekly-schedule")

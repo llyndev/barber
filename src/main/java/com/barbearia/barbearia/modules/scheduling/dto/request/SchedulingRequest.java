@@ -15,7 +15,10 @@ public record SchedulingRequest(
         Long barberId,
 
         @NotNull(message = "The date and time must be informed.")
-        @Future(message = "The appointment must be for a future date/time.")
-        LocalDateTime dateTime
+        LocalDateTime dateTime,
+
+        Long clientId,
+        String clientName,
+        Boolean force
 
 ) {}

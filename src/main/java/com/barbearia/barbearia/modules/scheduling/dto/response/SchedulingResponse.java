@@ -16,6 +16,7 @@ public record SchedulingResponse(
         AppointmentStatus states,
         Long clientId,
         String clientName,
+        String clientEmail,
         Long barberId,
         String barberName,
         List<BarberServiceResponse> services,
