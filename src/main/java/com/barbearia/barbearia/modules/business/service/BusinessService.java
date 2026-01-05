@@ -208,6 +208,23 @@ public class BusinessService {
         return business;
     }
 
+    public Business validateOwnerOrManagerOrBarberBySlug(String businessSlug, Long authenticatedUserId) {
+        if (businessSlug == null || businessSlug.isBlank()) {
+            throw new IllegalAccessError("Acesso negado");
+        }
+
+        Business business = businessRepository.findBySlug(businessSlug)
+            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
+
+        boolean hasAcess = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(authenticatedUserId, business.getId(), List.of(BusinessRole.OWNER, BusinessRole.MANAGER, BusinessRole.BARBER));
+
+        if (!hasAcess) {
+            throw new SecurityException("Acesso negado");
+        }
+
+        return business;
+    }
+
     public Business validateBarberBySlug(String businessSlug, Long authenticatedUserId) {
         if (businessSlug == null || businessSlug.isBlank()) {
             throw new IllegalArgumentException("Business slug é obrigatório");
@@ -253,7 +270,9 @@ public class BusinessService {
 
         business.setName(request.name());
         business.setDescription(request.description());
+        business.setTelephone(request.telephone());
         business.setAmenities(request.amenities());
+        business.setInstagramLink(request.instagramLink());
 
         return businessMapper.toResponse(businessRepository.save(business));
     }

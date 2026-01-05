@@ -34,7 +34,7 @@ public class SchedulingMapper {
                 ))
                 .toList();
 
-        var clientResponse = UserMapper.toClientResponse(scheduling.getUser());
+        var clientResponse = scheduling.getUser() != null ? UserMapper.toClientResponse(scheduling.getUser()) : null;
 
         var barberResponse = UserMapper.toBarberResponse(scheduling.getBarber());
 
@@ -42,8 +42,9 @@ public class SchedulingMapper {
                 scheduling.getId(),
                 scheduling.getDateTime(),
                 scheduling.getStates(),
-                scheduling.getUser().getId(),
-                scheduling.getUser().getName(),
+                scheduling.getUser() != null ? scheduling.getUser().getId() : null,
+                scheduling.getUser() != null ? scheduling.getUser().getName() : scheduling.getClientName(),
+                scheduling.getUser() != null ? scheduling.getUser().getEmail() : null,
                 scheduling.getBarber().getId(),
                 scheduling.getBarber().getName(),
                 serviceResponses,

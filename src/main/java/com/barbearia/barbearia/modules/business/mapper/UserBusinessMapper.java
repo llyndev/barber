@@ -19,6 +19,7 @@ public class UserBusinessMapper {
                 user.getBusiness().getName(),
                 user.getBusiness().getSlug(),
                 user.getRole(),
+                
                 new UserBusinessResponse.UserSummary(
                     user.getUser().getId(),
                     user.getUser().getName(),

@@ -27,6 +27,9 @@ public class Scheduling {
     @JoinColumn(name = "user_id")
     private AppUser user;
 
+    @Column(name = "client_name")
+    private String clientName;
+
     @ManyToOne()
     @JoinColumn(name = "barber_id")
     private AppUser barber;

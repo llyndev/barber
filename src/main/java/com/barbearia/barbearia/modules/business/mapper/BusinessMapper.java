@@ -44,9 +44,11 @@ public class BusinessMapper {
                 business.getId(),
                 business.getName(),
                 business.getDescription(),
+                business.getTelephone(),
                 business.getSlug(),
                 business.getAmenities(),
                 business.isActive(),
+                business.getInstagramLink(),
                 businessUrl,
                 backgroundUrl,
                 owner.getName(),
@@ -59,5 +61,4 @@ public class BusinessMapper {
                 a != null ? a.getUf() : null
         );
     }
-
 }

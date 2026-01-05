@@ -28,6 +28,8 @@ import com.barbearia.barbearia.modules.scheduling.dto.request.ProductUsageReques
 import com.barbearia.barbearia.modules.inventory.repository.ProductRepository;
 import com.barbearia.barbearia.modules.inventory.model.Product;
 import com.barbearia.barbearia.modules.scheduling.model.SchedulingProduct;
+import com.barbearia.barbearia.modules.orders.service.OrderService;
+import com.barbearia.barbearia.modules.orders.dto.request.CreateOrderRequest;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +54,7 @@ public class SchedulingService {
     private static final int SLOT_MINUTES = 15;
 
     private final UserService userService;
+    private final OrderService orderService;
     private final UserRepository userRepository;
     private final SchedulingRepository schedulingRepository;
     private final BarberServiceRepository barberServiceRepository;
@@ -116,14 +119,36 @@ public class SchedulingService {
     }
 
     @Transactional
-    public Scheduling createScheduling(Long clientId, SchedulingRequest request) {
-        log.info("Creating scheduling for client {} with barber {} at {}", 
-                clientId, request.barberId(), request.dateTime());
+    public Scheduling createScheduling(Long authenticatedUserId, SchedulingRequest request) {
+        log.info("Creating scheduling. Authenticated User: {}, Request: {}", authenticatedUserId, request);
 
         Long businessId = getBusinessIdFromContext();
         Business business = getBusinessEntityFromContext();
 
-        AppUser user = userService.getEntityById(clientId);
+        AppUser clientUser = null;
+        String clientName = null;
+
+        boolean isStaff = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(authenticatedUserId, businessId, BusinessRole.OWNER) ||
+                          userBusinessRepository.existsByUserIdAndBusinessIdAndRole(authenticatedUserId, businessId, BusinessRole.MANAGER) ||
+                          userBusinessRepository.existsByUserIdAndBusinessIdAndRole(authenticatedUserId, businessId, BusinessRole.BARBER);
+
+        if (isStaff) {
+            if (request.clientId() != null) {
+                clientUser = userService.getEntityById(request.clientId());
+            } else if (request.clientName() != null && !request.clientName().isBlank()) {
+                clientName = request.clientName();
+            } else {
+                // If staff doesn't specify client, assume they are booking for themselves
+                clientUser = userService.getEntityById(authenticatedUserId);
+            }
+        } else {
+            // Regular client booking for themselves
+            if (request.dateTime().isBefore(LocalDateTime.now())) {
+                throw new InvalidRequestException("The appointment must be for a future date/time.");
+            }
+            clientUser = userService.getEntityById(authenticatedUserId);
+        }
+
         AppUser barber = userService.getEntityById(request.barberId());
 
         boolean isBarberInThisBusiness = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barber.getId(), businessId, BusinessRole.BARBER);
@@ -144,10 +169,14 @@ public class SchedulingService {
         }
 
         LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
-        ensureAvailableOrThrow(barber.getId(), validServices, start);
+        
+        if (!isStaff || !Boolean.TRUE.equals(request.force())) {
+            ensureAvailableOrThrow(barber.getId(), validServices, start);
+        }
 
         Scheduling sched = new Scheduling();
-        sched.setUser(user);
+        sched.setUser(clientUser);
+        sched.setClientName(clientName);
         sched.setBarber(barber);
         sched.setBarberService(validServices);
         sched.setDateTime(start);
@@ -173,7 +202,7 @@ public class SchedulingService {
             throw new RuntimeException("Usuário não encontrado");
         }
 
-        if (!scheduling.getUser().getId().equals(clientId)) {
+        if (scheduling.getUser() == null || !scheduling.getUser().getId().equals(clientId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "FORBIDDEN");
         }
@@ -455,5 +484,16 @@ public class SchedulingService {
                 throw new ConflictingScheduleException("Horário conflitante");
             }
         }
+    }
+
+    @Transactional
+    public void startAppointment(Long schedulingId) {
+        Scheduling scheduling = schedulingRepository.findById(schedulingId)
+                .orElseThrow(() -> new ResourceNotFoundException("Scheduling not found"));
+        
+        scheduling.setStates(AppointmentStatus.IN_PROGRESS);
+        schedulingRepository.save(scheduling);
+
+        orderService.createOrder(new CreateOrderRequest(scheduling.getId(), null, null, null));
     }
 }
