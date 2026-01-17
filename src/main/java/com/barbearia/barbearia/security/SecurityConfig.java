@@ -55,7 +55,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/business", "/business/{id}", "/business/slug/{slug}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/barber-service", "/barber-service/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/barbers").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/opening-hours/status").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/opening-hours/status", "/opening-hours/weekly-schedule").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inventory/**").permitAll()
                         
                         // Public Scheduling Information (Availability)
                         .requestMatchers(HttpMethod.GET, "/scheduling/available-times").permitAll()
