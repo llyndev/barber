@@ -93,6 +93,12 @@ public class SchedulingService {
     }
 
     @Transactional(readOnly = true)
+    public List<SchedulingResponse> getByDateRange(LocalDateTime start, LocalDateTime end, Long businessId) {
+        List<Scheduling> scheduling = schedulingRepository.findByDateTimeBetweenAndBusinessId(start, end, businessId);
+        return SchedulingMapper.toResponseList(scheduling);
+    }
+
+    @Transactional(readOnly = true)
     public SchedulingResponse getById(Long id) {
         Long businessId = getBusinessIdFromContext();
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(id, businessId).orElseThrow(

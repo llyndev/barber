@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.scheduling.mapper;
 
 import com.barbearia.barbearia.modules.catalog.dto.response.BarberServiceResponse;
 import com.barbearia.barbearia.modules.catalog.mapper.BarberServiceMapper;
+import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingAdditionalValueResponse;
 import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingProductResponse;
 import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
@@ -34,6 +35,17 @@ public class SchedulingMapper {
                 ))
                 .toList();
 
+        List<SchedulingAdditionalValueResponse> additionalValueResponses = scheduling.getAdditionalValues() == null ?
+            List.of() :
+            scheduling.getAdditionalValues().stream()
+                .map(av -> new SchedulingAdditionalValueResponse(
+                    av.getId(),
+                    av.getBarber().getId(),
+                    av.getBarber().getName(),
+                    av.getValue()
+                ))
+                .toList();
+
         var clientResponse = scheduling.getUser() != null ? UserMapper.toClientResponse(scheduling.getUser()) : null;
 
         var barberResponse = UserMapper.toBarberResponse(scheduling.getBarber());
@@ -52,6 +64,7 @@ public class SchedulingMapper {
                 barberResponse,
                 scheduling.getObservation(),
                 scheduling.getAdditionalValue(),
+                additionalValueResponses,
                 scheduling.getPaymentMethod(),
                 productResponses,
                 scheduling.getBusiness() != null ? scheduling.getBusiness().getName() : null,

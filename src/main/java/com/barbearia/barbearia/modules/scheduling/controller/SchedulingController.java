@@ -57,6 +57,33 @@ public class SchedulingController {
         return ResponseEntity.ok(schedulings);
     }
 
+    @GetMapping("/business/{slug}")
+    public ResponseEntity<List<SchedulingResponse>> listSchedulingsBySlug(
+            @PathVariable String slug,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        
+        Business business = businessService.validateOwnerOrManagerBySlug(slug, userDetails.user().getId());
+        
+        List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(business.getId());
+        return ResponseEntity.ok(schedulings);
+    }
+
+    @GetMapping("/business/{slug}/range")
+    public ResponseEntity<List<SchedulingResponse>> listSchedulingsByDateRange(
+            @PathVariable String slug,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+
+        Business business = businessService.validateOwnerOrManagerBySlug(slug, userDetails.user().getId());
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<SchedulingResponse> schedulings = schedulingService.getByDateRange(startDateTime, endDateTime, business.getId());
+        return ResponseEntity.ok(schedulings);
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<SchedulingResponse> schedulingId(@PathVariable Long id) {
         return ResponseEntity.ok(schedulingService.getById(id));
