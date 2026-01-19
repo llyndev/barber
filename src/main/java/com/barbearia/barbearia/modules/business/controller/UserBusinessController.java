@@ -5,16 +5,20 @@ import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.barbearia.barbearia.modules.business.dto.request.UpdateCommissionRequest;
 import com.barbearia.barbearia.modules.business.dto.response.UserBusinessResponse;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.modules.business.service.BusinessService;
 import com.barbearia.barbearia.modules.business.service.UserBusinessService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
@@ -50,6 +54,21 @@ public class UserBusinessController {
         }
         
         userBusinessService.removeUserFromMyBusiness(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/users/{userId}/commission")
+    public ResponseEntity<Void> updateCommission(
+            @PathVariable Long userId,
+            @Valid @RequestBody UpdateCommissionRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
+        
+        if (businessSlug != null && !businessSlug.isBlank()) {
+            businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
+        }
+        
+        userBusinessService.updateCommission(userId, request.percentage());
         return ResponseEntity.noContent().build();
     }
 }

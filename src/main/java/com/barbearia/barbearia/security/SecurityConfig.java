@@ -74,6 +74,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/inventory/**").authenticated()
                         .requestMatchers("/barber-service/**").authenticated()
                         .requestMatchers("/orders/**").authenticated()
+                        .requestMatchers("/expenses", "/expenses/**").authenticated()
                         
                         // Role Based
                         .requestMatchers("/users/**").hasRole("PLATFORM_ADMIN")

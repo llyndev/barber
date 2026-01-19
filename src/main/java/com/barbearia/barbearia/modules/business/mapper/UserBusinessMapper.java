@@ -19,6 +19,7 @@ public class UserBusinessMapper {
                 user.getBusiness().getName(),
                 user.getBusiness().getSlug(),
                 user.getRole(),
+                user.getCommissionPercentage(),
                 
                 new UserBusinessResponse.UserSummary(
                     user.getUser().getId(),
