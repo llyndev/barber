@@ -24,6 +24,7 @@ public record SchedulingResponse(
         BarberResponse barber,
         String observation,
         BigDecimal additionalValue,
+        List<SchedulingAdditionalValueResponse> additionalValues,
         PaymentMethod paymentMethod,
         List<SchedulingProductResponse> productsUsed,
         String businessName,

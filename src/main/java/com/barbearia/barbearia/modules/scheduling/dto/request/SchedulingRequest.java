@@ -1,6 +1,5 @@
 package com.barbearia.barbearia.modules.scheduling.dto.request;
 
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDateTime;

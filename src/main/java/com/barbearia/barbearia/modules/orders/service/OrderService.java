@@ -14,12 +14,14 @@ import com.barbearia.barbearia.modules.orders.dto.request.CheckoutRequest;
 import com.barbearia.barbearia.modules.orders.dto.request.CreateOrderRequest;
 import com.barbearia.barbearia.modules.orders.dto.response.OrderItemResponse;
 import com.barbearia.barbearia.modules.orders.dto.response.OrderResponse;
+import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingAdditionalValueResponse;
 import com.barbearia.barbearia.modules.orders.model.*;
-import com.barbearia.barbearia.modules.orders.repository.OrderItemRepository;
 import com.barbearia.barbearia.modules.orders.repository.OrderRepository;
 import com.barbearia.barbearia.modules.scheduling.model.AppointmentStatus;
 import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
+import com.barbearia.barbearia.modules.scheduling.model.SchedulingAdditionalValue;
 import com.barbearia.barbearia.modules.scheduling.repository.SchedulingRepository;
+import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.tenant.BusinessContext;
 import lombok.RequiredArgsConstructor;
@@ -218,6 +220,25 @@ public class OrderService {
                     .orElse(null);
             if (scheduling != null) {
                 scheduling.setStates(AppointmentStatus.COMPLETED);
+
+                if (request.additionalValues() != null && !request.additionalValues().isEmpty()) {
+                    if (scheduling.getAdditionalValues() == null) {
+                        scheduling.setAdditionalValues(new java.util.ArrayList<>());
+                    }
+                    for (CheckoutRequest.AdditionalValueRequest val : request.additionalValues()) {
+                        AppUser barber = userRepository.findById(val.barberId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Barber not found ID: " + val.barberId()));
+
+                        SchedulingAdditionalValue additionalValue = SchedulingAdditionalValue.builder()
+                            .scheduling(scheduling)
+                            .barber(barber)
+                            .value(val.value())
+                            .build();
+                        
+                        scheduling.getAdditionalValues().add(additionalValue);
+                    }
+                }
+
                 scheduling.setPaymentMethod(request.paymentMethod());
                 schedulingRepository.save(scheduling);
             }
@@ -260,6 +281,21 @@ public class OrderService {
                 .orElse(null)
             : null;
 
+        List<SchedulingAdditionalValueResponse> additionalValues = List.of();
+        if (order.getSchedulingId() != null) {
+             Scheduling s = schedulingRepository.findById(order.getSchedulingId()).orElse(null);
+             if (s != null && s.getAdditionalValues() != null) {
+                 additionalValues = s.getAdditionalValues().stream()
+                    .map(av -> new SchedulingAdditionalValueResponse(
+                        av.getId(),
+                        av.getBarber().getId(),
+                        av.getBarber().getName(),
+                        av.getValue()
+                    ))
+                    .collect(Collectors.toList());
+             }
+        }
+
         return new OrderResponse(
                 order.getId(),
                 order.getBusinessId(),
@@ -272,7 +308,8 @@ public class OrderService {
                 order.getTotalAmount(),
                 items,
                 order.getCreatedAt(),
-                order.getUpdatedAt()
+                order.getUpdatedAt(),
+                additionalValues
         );
     }
 

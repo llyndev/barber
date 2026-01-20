@@ -54,6 +54,9 @@ public class Scheduling {
     @Column(name = "additional_value")
     private BigDecimal additionalValue;
 
+    @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SchedulingAdditionalValue> additionalValues;
+
     @Column(name = "observation_scheduling")
     private String observation;
 
