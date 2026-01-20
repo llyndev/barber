@@ -26,6 +26,7 @@ public class UserMapper {
                     ub.getBusiness().getName(),
                     ub.getBusiness().getSlug(),
                     ub.getRole(),
+                    ub.getCommissionPercentage(),
                     new UserBusinessResponse.UserSummary(
                         appUser.getId(),
                         appUser.getName(),

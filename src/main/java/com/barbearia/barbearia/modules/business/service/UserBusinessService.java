@@ -65,4 +65,16 @@ public class UserBusinessService {
         userBusinessRepository.delete(link);
     }
 
+    @Transactional
+    public void updateCommission(Long userId, java.math.BigDecimal percentage) {
+        checkOwnerManagerPermission();
+        Long businessId = getBusinessIdFromContext();
+
+        UserBusiness link = userBusinessRepository.findByUserIdAndBusinessId(userId, businessId)
+                .orElseThrow(() -> new ResourceNotFoundException("Colaborador não encontrado nesta barbearia"));
+
+        link.setCommissionPercentage(percentage);
+        userBusinessRepository.save(link);
+    }
+
 }

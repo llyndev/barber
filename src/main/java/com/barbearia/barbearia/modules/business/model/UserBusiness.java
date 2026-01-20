@@ -1,5 +1,7 @@
 package com.barbearia.barbearia.modules.business.model;
 
+import java.math.BigDecimal;
+
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import jakarta.persistence.*;
 import lombok.*;
@@ -29,5 +31,8 @@ public class UserBusiness {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private BusinessRole role;
+
+    @Column(name = "commission_percentage", precision = 5, scale = 2)
+    private BigDecimal commissionPercentage;
 
 }
