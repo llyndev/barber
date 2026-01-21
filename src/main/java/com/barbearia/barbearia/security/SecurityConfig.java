@@ -50,6 +50,7 @@ public class SecurityConfig {
                         
                         // Public Authentication Endpoints
                         .requestMatchers("/auth/**", "/register", "/register/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll() // Liberar imagens
                         
                         // Public Business Information
                         .requestMatchers(HttpMethod.GET, "/business", "/business/{id}", "/business/slug/{slug}").permitAll()
