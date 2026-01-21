@@ -20,15 +20,23 @@ public class FileStorageService {
     private String uploadDir;
 
     private static final List<String> ALLOWED_CONTENT_TYPES = List.of("image/jpeg", "image/png", "image/webp");
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
-    public String saveImage(MultipartFile file) throws IOException {
+    public String saveImage(MultipartFile file, String folderPath) throws IOException {
 
         if (file.isEmpty()) {
             throw new InvalidRequestException("O arquivo não pode estar vazio.");
         }
 
-        if (!ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
-            throw new InvalidRequestException("Tipo de arquivo inválido.");
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new InvalidRequestException("O arquivo excede o tamanho máximo permitido de 5MB.");
+        }
+
+        String contentType = file.getContentType();
+        System.out.println("Recebido arquivo: " + file.getOriginalFilename() + " Content-Type: " + contentType);
+
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new InvalidRequestException("Tipo de arquivo inválido: " + contentType + ". Apenas JPEG, PNG e WEBP são permitidos.");
         }
 
         String originalFileNames = file.getOriginalFilename();
@@ -38,17 +46,21 @@ public class FileStorageService {
             fileExtension = originalFileNames.substring(originalFileNames.lastIndexOf("."));
         }
 
-        String uniqueFileName = UUID.randomUUID().toString() + "_" + fileExtension;
+        String uniqueFileName = UUID.randomUUID().toString() + fileExtension;
+        
+        // Define o diretório de destino (ex: uploads/users/1)
+        Path uploadPath = Paths.get(uploadDir).resolve(folderPath);
 
-        Path uploadPath = Paths.get(uploadDir);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
 
         Path filePath = uploadPath.resolve(uniqueFileName);
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-        return uniqueFileName;
+        
+        // Retorna o caminho relativo (ex: users/1/nome-arquivo.jpg)
+        // Normaliza para barras normais para ser URL-friendly
+        return Paths.get(folderPath).resolve(uniqueFileName).toString().replace("\\", "/");
     }
 
     public void deleteImage(String fileName) {
