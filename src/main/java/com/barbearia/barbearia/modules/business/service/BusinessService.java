@@ -338,11 +338,12 @@ public class BusinessService {
             throw new IllegalArgumentException("Invalid image type. Use LOGO or BACKGROUND");
         }
 
+        String folder = "business/" + businessId;
+        String fileName = fileStorageService.saveImage(file, folder);
+
         if (oldImage != null) {
             fileStorageService.deleteImage(oldImage);
         }
-
-        String fileName = fileStorageService.saveImage(file);
 
         if ("LOGO".equalsIgnoreCase(type)) {
             business.setBusinessImage(fileName);
@@ -352,5 +353,32 @@ public class BusinessService {
         
         businessRepository.save(business);
         return fileName;
+    }
+
+    @Transactional
+    public void removeBusinessImage(Long businessId, Long userId, String type) {
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+
+        if (!business.getOwner().getId().equals(userId)) {
+            throw new IllegalArgumentException("Access denied");
+        }
+
+        String imageToRemove = null;
+        if ("LOGO".equalsIgnoreCase(type)) {
+            imageToRemove = business.getBusinessImage();
+            business.setBusinessImage(null);
+        } else if ("BACKGROUND".equalsIgnoreCase(type)) {
+            imageToRemove = business.getBackgroundImage();
+            business.setBackgroundImage(null);
+        } else {
+            throw new IllegalArgumentException("Invalid image type. Use LOGO or BACKGROUND");
+        }
+
+        if (imageToRemove != null) {
+            fileStorageService.deleteImage(imageToRemove);
+        }
+        
+        businessRepository.save(business);
     }
 }
