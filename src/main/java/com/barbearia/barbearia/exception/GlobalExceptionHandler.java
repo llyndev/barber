@@ -100,4 +100,11 @@ public class GlobalExceptionHandler {
         Map<String, String> body = Map.of("error", "An unexpected error occurred. Please try again later.");
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<Map<String, String>> handleBadRequest(BadRequestException exception) {
+        log.warn("Bad request: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", exception.getMessage());
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
 }
