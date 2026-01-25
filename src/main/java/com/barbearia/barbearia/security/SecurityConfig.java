@@ -65,6 +65,8 @@ public class SecurityConfig {
                         // Public Resources
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers("/leads").permitAll()
+                        .requestMatchers("/auth/forgot-password").permitAll()
+                        .requestMatchers("/auth/reset-password").permitAll()
 
                         // Protected Endpoints
                         .requestMatchers("/scheduling/**").authenticated()
