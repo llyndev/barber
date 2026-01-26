@@ -1,6 +1,7 @@
 package com.barbearia.barbearia.modules.account.service;
 
 import com.barbearia.barbearia.exception.BadRequestException;
+import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.account.dto.response.PasswordResetTokenResponse;
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.model.PasswordResetToken;
@@ -34,6 +35,10 @@ public class PasswordResetTokenService {
 
     @Transactional
     public void requestReset(String email) {
+        if (!userRepository.existsByEmail(email)) {
+            throw new ResourceNotFoundException("E-mail não existe");
+        }
+
         userRepository.findByEmail(email).ifPresent(user -> {
             var prt = new PasswordResetToken();
             prt.setUser(user);
