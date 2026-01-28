@@ -25,18 +25,18 @@ public class FileStorageService {
     public String saveImage(MultipartFile file, String folderPath) throws IOException {
 
         if (file.isEmpty()) {
-            throw new InvalidRequestException("O arquivo não pode estar vazio.");
+            throw new InvalidRequestException("The file cannot be empty.");
         }
 
         if (file.getSize() > MAX_FILE_SIZE) {
-            throw new InvalidRequestException("O arquivo excede o tamanho máximo permitido de 5MB.");
+            throw new InvalidRequestException("The file exceeds the maximum allowed size of 5MB.");
         }
 
         String contentType = file.getContentType();
-        System.out.println("Recebido arquivo: " + file.getOriginalFilename() + " Content-Type: " + contentType);
+        System.out.println("File received: " + file.getOriginalFilename() + " Content-Type: " + contentType);
 
         if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
-            throw new InvalidRequestException("Tipo de arquivo inválido: " + contentType + ". Apenas JPEG, PNG e WEBP são permitidos.");
+            throw new InvalidRequestException("Invalid file type: " + contentType + ". Only JPEG, PNG, and WEBP formats are allowed.");
         }
 
         String originalFileNames = file.getOriginalFilename();

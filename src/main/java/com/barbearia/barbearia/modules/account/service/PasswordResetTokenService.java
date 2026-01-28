@@ -36,7 +36,7 @@ public class PasswordResetTokenService {
     @Transactional
     public void requestReset(String email) {
         if (!userRepository.existsByEmail(email)) {
-            throw new ResourceNotFoundException("E-mail não existe");
+            throw new ResourceNotFoundException("The email address does not exist.");
         }
 
         userRepository.findByEmail(email).ifPresent(user -> {
@@ -57,10 +57,10 @@ public class PasswordResetTokenService {
     @Transactional
     public void resetPassword(String token, String newPassword) {
         var prt = tokenRepository.findByToken(token)
-                .orElseThrow(() -> new RuntimeException("Token inválido"));
+                .orElseThrow(() -> new RuntimeException("Invalid token"));
 
-        if (prt.isUsed()) throw new BadRequestException("Token já utilizado");
-        if (prt.getExpirationDate().isBefore(Instant.now())) throw new BadRequestException("Token expirado");
+        if (prt.isUsed()) throw new BadRequestException("Token already used");
+        if (prt.getExpirationDate().isBefore(Instant.now())) throw new BadRequestException("Expired token");
 
         var user = prt.getUser();
         user.setPassword(passwordEncoder.encode(newPassword));

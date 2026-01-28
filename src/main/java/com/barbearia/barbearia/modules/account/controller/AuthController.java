@@ -38,18 +38,18 @@ public class AuthController {
             @RequestBody @Valid ForgotPasswordRequest request
     ) {
         passwordResetTokenService.requestReset(request.email());
-        return ResponseEntity.ok().body("Se o e-mail existir, enviaremos um link de recuperação.");
+        return ResponseEntity.ok().body("If the email address exists, we will send a recovery link.");
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<?> resetPassword(@RequestBody @Valid PasswordResetTokenRequest request) {
 
         if (!request.newPassword().equals(request.confirmPassword())) {
-            return ResponseEntity.badRequest().body("Credenciais invalidas");
+            return ResponseEntity.badRequest().body("Invalid credentials");
         }
 
         passwordResetTokenService.resetPassword(request.token(), request.newPassword());
-        return ResponseEntity.ok().body("Senha atualizada com sucesso");
+        return ResponseEntity.ok().body("Password updated successfully.");
     }
 
 

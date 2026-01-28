@@ -96,7 +96,7 @@ public class OpeningHoursService {
 
             entity.setTypeRule(TypeRule.RECURRING);
             entity.setBusiness(business);
-            entity.setBarber(null); // Ensure it's for business
+            entity.setBarber(null);
             return entity;
         }).collect(Collectors.toList());
 

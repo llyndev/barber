@@ -3,6 +3,7 @@ package com.barbearia.barbearia.tenant;
 public final class BusinessContext {
 
     private static final ThreadLocal<String> BUSINESS = new ThreadLocal<>();
+
     private static final ThreadLocal<String> BUSINESS_ROLE = new ThreadLocal<>();
 
     private BusinessContext() {}
