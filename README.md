@@ -1,7 +1,7 @@
 
 # Barber SaaS API
 
-API backend para um sistema SaaS de gestão de barbearias, desenvolvido com Java e Spring Boot. Permite que múltiplas barbearias utilizem a mesma plataforma, cada uma com seus próprios usuários, serviços, regras e dados isolados (multi-tenant).
+API backend para um sistema SaaS de gestão de barbearias, desenvolvido com Java e Spring Boot. Permite que múltiplas barbearias utilizem a mesma plataforma, cada uma com seus próprios usuários, serviços, regras e dados isolados (multi-tenant). 
 
 ---
 
