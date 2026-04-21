@@ -10,6 +10,8 @@ public interface UserRepository extends JpaRepository<AppUser, Long> {
 
     Optional<AppUser> findByEmail(String email);
 
+    Optional<AppUser> findByGoogleSubject(String googleSubject);
+
     List<AppUser> findAllByPlatformRole(AppUser.PlatformRole platformRole);
 
     boolean existsByEmail(String email);

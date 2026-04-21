@@ -48,6 +48,9 @@ public class Scheduling {
     @Enumerated(EnumType.STRING)
     private AppointmentStatus states = AppointmentStatus.SCHEDULED;
 
+    @Column(name = "google_event_id")
+    private String googleEventId;
+
     @Column(name = "reason_cancel")
     private String reasonCancel;
 
