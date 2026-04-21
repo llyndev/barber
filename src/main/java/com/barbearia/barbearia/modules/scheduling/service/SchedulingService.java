@@ -30,6 +30,7 @@ import com.barbearia.barbearia.modules.inventory.model.Product;
 import com.barbearia.barbearia.modules.scheduling.model.SchedulingProduct;
 import com.barbearia.barbearia.modules.orders.service.OrderService;
 import com.barbearia.barbearia.modules.orders.dto.request.CreateOrderRequest;
+import com.barbearia.barbearia.modules.googlecalender.service.GoogleCalenderService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +64,7 @@ public class SchedulingService {
     private final UserBusinessRepository userBusinessRepository;
     private final InventoryService inventoryService;
     private final ProductRepository productRepository;
+    private final GoogleCalenderService googleCalenderService;
 
     private Long getBusinessIdFromContext() {
         String businessIdStr = BusinessContext.getBusinessId();
@@ -192,6 +194,8 @@ public class SchedulingService {
         Scheduling saved = schedulingRepository.save(sched);
         log.info("Agendamento criado com sucesso ID: {}", saved.getId());
 
+        googleCalenderService.syncSchedulingCreated(saved);
+
         return saved;
 
     }
@@ -214,7 +218,13 @@ public class SchedulingService {
         }
 
         scheduling.setStates(AppointmentStatus.CANCELED);
-        schedulingRepository.save(scheduling);
+        Scheduling saved = schedulingRepository.save(scheduling);
+
+        try {
+            googleCalenderService.syncSchedulingCanceled(saved);
+        } catch (Exception ex) {
+            log.warn("Falha ao cancelar evento no Google Calendar para scheduling {}: {}", saved.getId(), ex.getMessage());
+        }
     }
 
     @Transactional
@@ -236,7 +246,13 @@ public class SchedulingService {
 
         scheduling.setStates(AppointmentStatus.CANCELED);
         scheduling.setReasonCancel(reason);
-        schedulingRepository.save(scheduling);
+        Scheduling saved = schedulingRepository.save(scheduling);
+
+        try {
+            googleCalenderService.syncSchedulingCanceled(saved);
+        } catch (Exception ex) {
+            log.warn("Falha ao cancelar evento no Google Calendar para scheduling {}: {}", saved.getId(), ex.getMessage());
+        }
     }
 
     public Scheduling endService(Long schedulingId, EndSchedulingRequest endSchedulingRequest, Long barberId) {
@@ -310,7 +326,15 @@ public class SchedulingService {
         scheduling.setAdditionalValue(endSchedulingRequest.additionalValue());
         scheduling.setPaymentMethod(endSchedulingRequest.paymentMethod());
 
-        return schedulingRepository.save(scheduling);
+        Scheduling saved = schedulingRepository.save(scheduling);
+
+        try {
+            googleCalenderService.syncSchedulingUpdated(saved);
+        } catch (Exception ex) {
+            log.warn("Falha ao atualizar evento no Google Calendar para scheduling {}: {}", saved.getId(), ex.getMessage());
+        }
+
+        return saved;
     }
 
     @Transactional
@@ -337,7 +361,15 @@ public class SchedulingService {
             }
         }
 
-        return schedulingRepository.save(scheduling);
+        Scheduling saved = schedulingRepository.save(scheduling);
+
+        try {
+            googleCalenderService.syncSchedulingUpdated(saved);
+        } catch (Exception ex) {
+            log.warn("Falha ao atualizar evento no Google Calendar para scheduling {}: {}", saved.getId(), ex.getMessage());
+        }
+
+        return saved;
 
     }
 

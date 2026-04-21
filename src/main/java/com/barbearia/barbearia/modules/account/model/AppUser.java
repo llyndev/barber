@@ -34,6 +34,12 @@ public class AppUser{
     @Column(name = "document", unique = true)
     private String document;
 
+    @Column(name = "google_subject", unique = true)
+    private String googleSubject;
+
+    @Column(name = "google_picture")
+    private String googlePicture;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "users_role")
     private PlatformRole platformRole;
