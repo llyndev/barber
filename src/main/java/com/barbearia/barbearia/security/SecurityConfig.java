@@ -49,21 +49,27 @@ public class SecurityConfig {
                         .requestMatchers("/", "/error", "/csrf").permitAll()
                         
                         // Public Authentication Endpoints
-                        .requestMatchers("/auth/**", "/register", "/register/**").permitAll()
+                        .requestMatchers("/register", "/register/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll() // Liberar imagens
+
+                        // Public Auths
+                        .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/google", "/auth/forgot-password", "reset-password").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
                         
                         // Public Business Information
                         .requestMatchers(HttpMethod.GET, "/business", "/business/{id}", "/business/slug/{slug}").permitAll()
                         .requestMatchers(HttpMethod.GET, "/barber-service", "/barber-service/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/users/barbers").permitAll()
                         .requestMatchers(HttpMethod.GET, "/opening-hours/status", "/opening-hours/weekly-schedule").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/inventory/**").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inventory/{slug}").permitAll()
                         
                         // Public Scheduling Information (Availability)
                         .requestMatchers(HttpMethod.GET, "/scheduling/available-times").permitAll()
                         
                         // Public Resources
-                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        //.requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers("/leads").permitAll()
                         .requestMatchers("/auth/forgot-password").permitAll()
                         .requestMatchers("/auth/reset-password").permitAll()
