@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.inventory.controller;
 
 import java.util.List;
 
+import com.barbearia.barbearia.modules.inventory.dto.response.PublicProdutResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -23,15 +24,20 @@ import com.barbearia.barbearia.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/inventory")
+@RequestMapping("/inventory")
 @RequiredArgsConstructor
 public class InventoryController {
     
     private final InventoryService inventoryService;
 
+    @GetMapping("/public/{slug}")
+    public ResponseEntity<List<PublicProdutResponse>> publicListProducts(@PathVariable String slug) {
+        return ResponseEntity.ok(inventoryService.publicListProducts(slug));
+    }
+
     @GetMapping("/{slug}")
-    public ResponseEntity<List<ProductResponse>> listProducts(@PathVariable String slug) {
-        return ResponseEntity.ok(inventoryService.listProducts(slug));
+    public ResponseEntity<List<ProductResponse>> listProducts(@PathVariable String slug, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return ResponseEntity.ok(inventoryService.listProducts(slug, userDetails.user()));
     }
 
     @PostMapping("/{slug}")
@@ -59,8 +65,8 @@ public class InventoryController {
     }
 
     @GetMapping("/{slug}/history")
-    public ResponseEntity<List<StockMovementResponse>> listHistory(@PathVariable String slug) {
-        return ResponseEntity.ok(inventoryService.listMovements(slug));
+    public ResponseEntity<List<StockMovementResponse>> listHistory(@PathVariable String slug, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return ResponseEntity.ok(inventoryService.listMovements(slug, userDetails.user()));
     }
 
     @DeleteMapping("/{slug}/{productId}")
