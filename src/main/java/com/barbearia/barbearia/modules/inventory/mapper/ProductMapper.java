@@ -1,5 +1,6 @@
 package com.barbearia.barbearia.modules.inventory.mapper;
 
+import com.barbearia.barbearia.modules.inventory.dto.response.PublicProdutResponse;
 import org.springframework.stereotype.Component;
 
 import com.barbearia.barbearia.modules.inventory.dto.request.ProductRequest;
@@ -41,6 +42,20 @@ public class ProductMapper {
             product.getPrice(),
             product.getCostPrice(),
             product.isActive()
+        );
+    }
+
+    public PublicProdutResponse toPublicResponse(Product product) {
+        if (product == null) {
+            return null;
+        }
+
+        return new PublicProdutResponse(
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getQuantity(),
+                product.getPrice()
         );
     }
 }

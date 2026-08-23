@@ -3,6 +3,7 @@ package com.barbearia.barbearia.modules.inventory.service;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.barbearia.barbearia.modules.inventory.dto.response.PublicProdutResponse;
 import org.springframework.stereotype.Service;
 
 import com.barbearia.barbearia.exception.InvalidRequestException;
@@ -37,9 +38,21 @@ public class InventoryService {
     private final BusinessService businessService;
     private final StockMovementMapper stockMovementMapper;
 
-    public List<ProductResponse> listProducts(String slug) {
+    public List<PublicProdutResponse> publicListProducts(String slug) {
         Business business = businessRepository.findBySlug(slug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
+            .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+
+        return productRepository.findAllByBusinessIdAndActiveTrue(business.getId())
+                .stream()
+                .map(productMapper::toPublicResponse)
+                .toList();
+    }
+
+    public List<ProductResponse> listProducts(String slug, AppUser user) {
+        Business business = businessRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+
+        businessService.validateOwnerOrManagerBySlug(slug, user.getId());
 
         return productRepository.findAllByBusinessIdAndActiveTrue(business.getId())
                 .stream()
@@ -94,9 +107,11 @@ public class InventoryService {
         return product.getPrice().multiply(BigDecimal.valueOf(quantity));
     }
 
-    public List<StockMovementResponse> listMovements(String slug) {
+    public List<StockMovementResponse> listMovements(String slug, AppUser user) {
         Business business = businessRepository.findBySlug(slug)
             .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+
+        businessService.validateOwnerOrManagerBySlug(slug, user.getId());
 
         return stockMovementRepository.findByProduct_Business_IdOrderByDateDesc(business.getId())
                 .stream()
