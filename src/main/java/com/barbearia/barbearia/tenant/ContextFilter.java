@@ -40,26 +40,34 @@ public class ContextFilter extends OncePerRequestFilter{
             Business business = businessRepository.findBySlug(businessSlug)
                     .orElse(null);
 
-            if (business != null) {
+            if (business == null) {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND, "Business not found");
+                return;
+            }
+
+            var auth = SecurityContextHolder.getContext().getAuthentication();
+
+            if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof UserDetailsImpl userDetails) {
+                Long userId = userDetails.user().getId();
+
+                UserBusiness membership = userBusinessRepository
+                        .findByUserIdAndBusinessId(userId, business.getId())
+                        .orElse(null);
+
+                if (membership == null) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "User is not a member of this business");
+                }
 
                 BusinessContext.setBusinessId(business.getId().toString());
-
-                var auth = SecurityContextHolder.getContext().getAuthentication();
-
-                if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof UserDetailsImpl userDetails) {
-                    Long userId = userDetails.user().getId();
-
-                    UserBusiness membership = userBusinessRepository.findByUserIdAndBusinessId(userId, business.getId())
-                            .orElse(null);
-
-                    if (membership != null) {
-                        BusinessContext.setBusinessRole(membership.getRole().name());
-                    }
-                }                
+                BusinessContext.setBusinessRole(membership.getRole().name());
+            } else {
+                BusinessContext.setBusinessId(business.getId().toString());
             }
-                filterChain.doFilter(request, response);
-            } finally {
-                BusinessContext.clear();
+
+            filterChain.doFilter(request, response);
+
+        } finally {
+            BusinessContext.clear();
         }
     }
 }
