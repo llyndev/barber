@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import com.barbearia.barbearia.modules.inventory.dto.response.PublicProdutResponse;
+import com.barbearia.barbearia.security.UserDetailsImpl;
 import org.springframework.stereotype.Service;
 
 import com.barbearia.barbearia.exception.InvalidRequestException;
@@ -38,25 +39,25 @@ public class InventoryService {
     private final BusinessService businessService;
     private final StockMovementMapper stockMovementMapper;
 
-    public List<PublicProdutResponse> publicListProducts(String slug) {
-        Business business = businessRepository.findBySlug(slug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
-
-        return productRepository.findAllByBusinessIdAndActiveTrue(business.getId())
-                .stream()
-                .map(productMapper::toPublicResponse)
-                .toList();
-    }
-
     public List<ProductResponse> listProducts(String slug, AppUser user) {
         Business business = businessRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
 
         businessService.validateOwnerOrManagerBySlug(slug, user.getId());
 
         return productRepository.findAllByBusinessIdAndActiveTrue(business.getId())
                 .stream()
                 .map(productMapper::toResponse)
+                .toList();
+    }
+
+    public List<PublicProdutResponse> publicListProducts(String slug) {
+        Business business = businessRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+
+        return productRepository.findAllByBusinessIdAndActiveTrue(business.getId())
+                .stream()
+                .map(productMapper::toPublicResponse)
                 .toList();
     }
 
@@ -72,24 +73,27 @@ public class InventoryService {
     @Transactional
     public BigDecimal registerMovement(String slug, Long productId, StockMovementType type, Integer quantity, String reason, AppUser user) {
         Business business = businessRepository.findBySlug(slug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
+            .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 
         Product product = productRepository.findByIdAndBusinessId(productId, business.getId())
-            .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado para este business"));
+            .orElseThrow(() -> new ResourceNotFoundException("Product not found for this business"));
 
         if (quantity <= 0) {
             throw new InvalidRequestException("Quantity must be greater than zero");
         }
 
+        if (type == StockMovementType.EXIT) {
+            if (product.getQuantity() < quantity) {
+                throw new InvalidRequestException("Insufficient stock");
+            }
+        }
+
+        if (type == StockMovementType.ADJUSTMENT) {
+            product.setQuantity(quantity);
+        }
+
         if (type == StockMovementType.ENTRY) {
             product.setQuantity(product.getQuantity() + quantity);
-        } else if (type == StockMovementType.EXIT) {
-            if (product.getQuantity() < quantity) {
-                throw new InvalidRequestException("Estoque insuficiente");
-            }
-            product.setQuantity(product.getQuantity() - quantity);
-        } else if (type == StockMovementType.ADJUSTMENT) {
-            product.setQuantity(quantity);
         }
 
         productRepository.save(product);
