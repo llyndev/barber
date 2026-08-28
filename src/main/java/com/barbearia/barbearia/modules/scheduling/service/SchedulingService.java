@@ -67,12 +67,7 @@ public class SchedulingService {
     private final GoogleCalenderService googleCalenderService;
 
     private Long getBusinessIdFromContext() {
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID não encontrado");
-        }
-
-        return Long.parseLong(businessIdStr);
+        return BusinessContext.requireBusinessId();
     }
 
     private Business getBusinessEntityFromContext() {

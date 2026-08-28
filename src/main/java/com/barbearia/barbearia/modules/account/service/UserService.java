@@ -63,12 +63,9 @@ public class UserService {
 
     public List<UserResponse> listBarbers() {
 
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            return List.of();
-        }
-
-        Long businessId = Long.parseLong(businessIdStr);
+        Long businessId = BusinessContext.findBusinessId().orElseThrow(
+                () -> new ResourceNotFoundException("Business id not found")
+        );
 
         List<UserBusiness> memberships = userBusinessRepository
                 .findAllByBusinessIdAndRole(businessId, BusinessRole.BARBER);
