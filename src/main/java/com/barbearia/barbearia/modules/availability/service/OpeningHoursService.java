@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.availability.service;
 
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
+import com.barbearia.barbearia.modules.business.model.Membership;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.availability.dto.request.OpeningHoursRequest;
@@ -19,6 +20,7 @@ import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.availability.repository.OpeningHoursRepository;
 import com.barbearia.barbearia.tenant.BusinessContext;
 
+import com.barbearia.barbearia.tenant.BusinessGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,20 +41,10 @@ public class OpeningHoursService {
     private final BusinessRepository businessRepository;
     private final UserRepository userRepository;
     private final UserBusinessRepository userBusinessRepository;
+    private final BusinessGuard businessGuard;
 
     private Long getBusinessIdFromContext() {
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID not found");
-        }
-        return Long.parseLong(businessIdStr);
-    }
-
-    private void checkOwnerManagerPermission() {
-        String role = BusinessContext.getBusinessRole();
-        if (!"OWNER".equals(role) && !"MANAGER".equals(role)) {
-            throw new SecurityException("Unauthorized");
-        }
+        return BusinessContext.requireBusinessId();
     }
 
     public List<OpeningHoursResponse> listAll() {
@@ -73,7 +65,7 @@ public class OpeningHoursService {
 
     @Transactional
     public List<OpeningHoursResponse> upsertWeeklySchedule(List<OpeningHoursRequest> request) {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwnerOrManager();
         Long businessId = getBusinessIdFromContext();
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
@@ -149,7 +141,7 @@ public class OpeningHoursService {
 
     @Transactional
     public SpecificDateResponse createSpecificDate(SpecificDateRequest request) {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwnerOrManager();
         Long businessId = getBusinessIdFromContext();
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found")); 
@@ -168,7 +160,7 @@ public class OpeningHoursService {
 
     @Transactional
     public SpecificDateResponse updateSpecificDate(Long id, SpecificDateRequest request) {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwnerOrManager();
         Long businessId = getBusinessIdFromContext();
 
         OpeningHours existingSpecificDate = openingHoursRepository.findByIdAndBusinessId(id, businessId)
@@ -183,7 +175,7 @@ public class OpeningHoursService {
 
     @Transactional
     public void deleteSpecificDate(Long id) {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwnerOrManager();
         Long businessId = getBusinessIdFromContext();
 
 
@@ -206,9 +198,12 @@ public class OpeningHoursService {
     @Transactional
     public List<OpeningHoursResponse> upsertBarberWeeklySchedule(Long barberId, List<OpeningHoursRequest> request, AppUser currentUser) {
         Long businessId = getBusinessIdFromContext();
-        String role = BusinessContext.getBusinessRole();
 
-        boolean isOwnerOrManager = "OWNER".equals(role) || "MANAGER".equals(role);
+        BusinessRole role = BusinessContext.getRole().orElseThrow(
+                () -> new ResourceNotFoundException("Role not found")
+        );
+
+        boolean isOwnerOrManager = BusinessRole.OWNER.equals(role) || BusinessRole.MANAGER.equals(role);
         boolean isSelf = currentUser.getId().equals(barberId);
 
         if (!isOwnerOrManager && !isSelf) {

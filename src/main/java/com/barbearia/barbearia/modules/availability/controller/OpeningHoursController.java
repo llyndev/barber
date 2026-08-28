@@ -45,9 +45,9 @@ public class OpeningHoursController {
             @Valid @RequestBody List<OpeningHoursRequest> request,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestHeader("X-Business-Slug") String businessSlug) {
-        
+
         businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        
+
         List<OpeningHoursResponse> updatedSchedule = openingHoursService.upsertWeeklySchedule(request);
         return ResponseEntity.ok(updatedSchedule);
     }
