@@ -82,14 +82,11 @@ public class BusinessService {
 
     @Transactional
     public BusinessResponse create(BusinessRequest request, AppUser creator) {
-        if (request == null) throw new IllegalArgumentException("Request cannot be null");
-        if (request.name() == null || request.name().isBlank()) {
-            throw new IllegalArgumentException("Business name is required");
-        }
+        if (creator == null) throw new IllegalArgumentException("Creator cannot be null");
 
         // Valida se o usuário é BUSINESS_OWNER
         if (creator.getPlatformRole() != AppUser.PlatformRole.BUSINESS_OWNER) {
-            throw new SecurityException("Apenas usuários com role BUSINESS_OWNER podem criar barbearias. Entre em contato com o suporte para contratar um plano.");
+            throw new SecurityException("Unauthorized");
         }
 
         // Valida se o usuário tem plano ativo
@@ -97,20 +94,26 @@ public class BusinessService {
                 && creator.getDateExpirationAccount().isAfter(java.time.LocalDate.now());
 
         if (!hasActivePlan) {
-            throw new SecurityException("Você precisa ter um plano ativo para criar uma barbearia. Entre em contato com o suporte.");
+            throw new SecurityException("Unauthorized");
         }
 
-        // Valida limite de barbearias do plano
+        // TODO: Melhorar validação de limite de plano
         PlanType userPlan;
         try {
             userPlan = PlanType.valueOf(creator.getPlantType());
         } catch (Exception e) {
-            throw new IllegalStateException("Usuário sem tipo de plano definido.");
+            throw new IllegalStateException("User without a defined plan type");
         }
 
         long ownedBusinesses = userBusinessRepository.countByUserIdAndRole(creator.getId(), BusinessRole.OWNER);
         if (ownedBusinesses >= userPlan.getMaxBusiness()) {
-            throw new IllegalStateException("Seu plano " + userPlan.name() + " permite apenas " + userPlan.getMaxBusiness() + " barbearia(s). Faça upgrade do plano para criar mais.");
+            throw new IllegalStateException("Your plan " + userPlan.name() + " allows only " + userPlan.getMaxBusiness() + " barber(s).");
+        }
+
+        if (request == null) throw new IllegalArgumentException("Request cannot be null");
+
+        if (request.name() == null || request.name().isBlank()) {
+            throw new IllegalArgumentException("Business name is required");
         }
 
         Business business = businessMapper.toRequest(request);
@@ -125,6 +128,11 @@ public class BusinessService {
             throw new IllegalArgumentException("Slug in use");
         });
 
+        // Define a data de expiração do plano baseada na conta do usuário
+        if (creator.getDateExpirationAccount() != null) {
+            business.setPlanExpirationDate(creator.getDateExpirationAccount().atTime(23, 59, 59));
+        }
+
         // se cep informado, buscar endereço pelo AddressService e preencher número/complemento
         if (request.cep() != null && !request.cep().isBlank()) {
             var addrResp = addressService.getCep(request.cep());
@@ -134,11 +142,6 @@ public class BusinessService {
                 addr.setComplemento(request.complemento());
                 business.setAddress(addr);
             }
-        }
-
-        // Define a data de expiração do plano baseada na conta do usuário
-        if (creator.getDateExpirationAccount() != null) {
-            business.setPlanExpirationDate(creator.getDateExpirationAccount().atTime(23, 59, 59));
         }
 
         Business saved = businessRepository.save(business);
@@ -153,13 +156,13 @@ public class BusinessService {
         return businessMapper.toResponse(saved);
     }
 
-    public Business validateOwnerBySlug(String businessSlug, Long authenticatedUserId) {
+    public BusinessResponse validateOwnerBySlug(String businessSlug, Long authenticatedUserId) {
         if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalArgumentException("Business slug é obrigatório");
+            throw new IllegalArgumentException("Business slug is mandatory.");
         }
 
         Business business = businessRepository.findBySlug(businessSlug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado para o slug: " + businessSlug));
+                .orElseThrow(() -> new ResourceNotFoundException("Business not found for the slug: " + businessSlug));
 
         boolean isOwner = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(
                 authenticatedUserId,
@@ -168,11 +171,12 @@ public class BusinessService {
         );
 
         if (!isOwner) {
-            throw new SecurityException("Acesso negado. Apenas o owner da barbearia pode realizar esta operação.");
+            throw new SecurityException("Access denied. Only the barbershop owner can perform this operation.");
         }
 
-        return business;
+        return businessMapper.toResponse(business);
     }
+
 
     public Business validateBusinessMemberBySlug(String businessSlug, Long authenticatedUserId) {
         if (businessSlug == null || businessSlug.isBlank()) {

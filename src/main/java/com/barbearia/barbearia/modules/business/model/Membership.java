@@ -41,12 +41,5 @@ public class Membership {
     private AppUser user;
 
     @Enumerated(EnumType.STRING)
-    private Role role;
-
-    public enum Role {
-        OWNER,
-        ADMIN,
-        BARBER,
-        CLIENT
-    }
+    private BusinessRole role;
 }

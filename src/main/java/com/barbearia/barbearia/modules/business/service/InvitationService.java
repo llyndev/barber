@@ -5,6 +5,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
+import com.barbearia.barbearia.tenant.BusinessGuard;
 import org.springframework.stereotype.Service;
 
 import com.barbearia.barbearia.modules.business.dto.request.AddUserToBusinessRequest;
@@ -39,10 +40,11 @@ public class InvitationService {
     private final BusinessRepository businessRepository;
     private final UserBusinessMapper userBusinessMapper;
     private final InvitationMapper invitationMapper;
+    private final BusinessGuard businessGuard;
 
     @Transactional
     public InvitationResponse createInvitation(AddUserToBusinessRequest request) {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwnerOrManager();
         Long businessId = getBusinessIdFromContext();
 
         AppUser userToInvite = userRepository.findByEmail(request.userEmail())
@@ -63,8 +65,11 @@ public class InvitationService {
         }
 
         if (request.role() == BusinessRole.MANAGER) {
-             String currentRole = BusinessContext.getBusinessRole();
-             if (!"OWNER".equals(currentRole)) {
+             BusinessRole currentRole = BusinessContext.getRole().orElseThrow(
+                     () -> new ResourceNotFoundException("Role not found")
+             );
+
+             if (currentRole != BusinessRole.OWNER) {
                  throw new SecurityException("Only the OWNER can invite a MANAGER.");
              }
         }
@@ -119,6 +124,10 @@ public class InvitationService {
 
     @Transactional(readOnly = true)
     public List<InvitationResponse> getMyPendingInvitations(UserDetailsImpl userDetails) {
+        if (userDetails == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
         String userEmail = userDetails.user().getEmail();
         List<Invitation> invitations = invitationRepository.findByEmailAndStatus(userEmail, Invitation.Status.PENDING);
 
@@ -129,6 +138,10 @@ public class InvitationService {
 
     @Transactional
     public UserBusinessResponse acceptInvitation(Long invitationId, UserDetailsImpl userDetails) {
+        if (userDetails == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
         String userEmail = userDetails.user().getEmail();
         AppUser user = userDetails.user();
 
@@ -138,7 +151,7 @@ public class InvitationService {
         if (invitation.getExpiresAt().isBefore(Instant.now())) {
             invitation.setStatus(Invitation.Status.EXPIRED);
             invitationRepository.save(invitation);
-            throw new IllegalArgumentException("Invitaiton expired.");
+            throw new IllegalArgumentException("Invitation expired.");
         }
         
         invitation.setStatus(Invitation.Status.ACCEPTED);
@@ -157,6 +170,11 @@ public class InvitationService {
 
     @Transactional
     public void declineInvitation(Long invitationId, UserDetailsImpl userDetails) {
+
+        if (userDetails == null) {
+            throw new ResourceNotFoundException("User not found");
+        }
+
         String userEmail = userDetails.user().getEmail();
 
         Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, userEmail, Invitation.Status.PENDING)
@@ -167,18 +185,7 @@ public class InvitationService {
     }
 
     private Long getBusinessIdFromContext() {
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID não encontrado no contexto.");
-        }
-        return Long.parseLong(businessIdStr);
-    }
-
-    private void checkOwnerManagerPermission() {
-        String role = BusinessContext.getBusinessRole();
-        if (!"OWNER".equals(role) && !"MANAGER".equals(role)) {
-            throw new SecurityException("Permissão negada. Requer ROLE de OWNER ou MANAGER.");
-        }
+        return BusinessContext.requireBusinessId();
     }
     
 }

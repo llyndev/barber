@@ -34,24 +34,13 @@ public class InvitationController {
 
     @PostMapping("/my-business/invitations")
     public ResponseEntity<InvitationResponse> createInvitation(
-            @Valid @RequestBody AddUserToBusinessRequest request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
-        
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateOwnerBySlug(businessSlug, userDetails.user().getId());
-        }
-        
+            @Valid @RequestBody AddUserToBusinessRequest request) {
         InvitationResponse invitationResponse = invitationService.createInvitation(request);
-
         return ResponseEntity.status(HttpStatus.CREATED).body(invitationResponse);
     }
 
     @GetMapping("/my-invitations")
     public ResponseEntity<List<InvitationResponse>> getMyPendingInvitations(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-
-        if (userDetails == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
         List<InvitationResponse> invitations = invitationService.getMyPendingInvitations(userDetails);
         return ResponseEntity.ok(invitations);
     }
@@ -60,11 +49,7 @@ public class InvitationController {
     public ResponseEntity<UserBusinessResponse> acceptInvitation(
             @PathVariable("id") Long invitationId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        
-        if (userDetails == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-
         UserBusinessResponse link = invitationService.acceptInvitation(invitationId, userDetails);
-
         return ResponseEntity.ok(link);
     }
 
@@ -72,8 +57,6 @@ public class InvitationController {
     public ResponseEntity<Void> declineInvitation(
             @PathVariable("id") Long invitationId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        
-        if (userDetails == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         invitationService.declineInvitation(invitationId, userDetails);
         return ResponseEntity.noContent().build();
     }

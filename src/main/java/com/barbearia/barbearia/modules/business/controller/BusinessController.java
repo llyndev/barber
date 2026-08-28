@@ -61,10 +61,6 @@ public class BusinessController {
             @Valid @RequestBody BusinessRequest request, 
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
         BusinessResponse response = businessService.create(request, userDetails.user());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
