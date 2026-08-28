@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.business.service;
 
 import java.util.List;
 
+import com.barbearia.barbearia.tenant.BusinessGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,26 +22,16 @@ public class UserBusinessService {
 
     private final UserBusinessRepository userBusinessRepository;
     private final UserBusinessMapper userBusinessMapper;
+    private final BusinessGuard businessGuard;
     
 
     private Long getBusinessIdFromContext() {
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID não encontrado no contexto.");
-        }
-        return Long.parseLong(businessIdStr);
-    }
-
-    private void checkOwnerManagerPermission() {
-        String role = BusinessContext.getBusinessRole();
-        if (!"OWNER".equals(role) && !"MANAGER".equals(role)) {
-            throw new SecurityException("Permissão negada. Requer ROLE de OWNER ou MANAGER.");
-        }
+        return BusinessContext.requireBusinessId();
     }
 
     @Transactional(readOnly = true)
     public List<UserBusinessResponse> listUsersInMyBusiness() {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwnerOrManager();
         Long businessId = getBusinessIdFromContext();
 
         List<UserBusiness> memberships = userBusinessRepository.findAllByBusinessId(businessId);
@@ -52,7 +43,7 @@ public class UserBusinessService {
 
     @Transactional
     public void removeUserFromMyBusiness(Long userId) {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwner();
         Long businessId = getBusinessIdFromContext();
 
         UserBusiness link = userBusinessRepository.findByUserIdAndBusinessId(userId, businessId)
@@ -67,7 +58,7 @@ public class UserBusinessService {
 
     @Transactional
     public void updateCommission(Long userId, java.math.BigDecimal percentage) {
-        checkOwnerManagerPermission();
+        businessGuard.requireOwnerOrManager();
         Long businessId = getBusinessIdFromContext();
 
         UserBusiness link = userBusinessRepository.findByUserIdAndBusinessId(userId, businessId)
