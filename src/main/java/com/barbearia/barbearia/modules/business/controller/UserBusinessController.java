@@ -31,28 +31,14 @@ public class UserBusinessController {
     private final BusinessService businessService;
 
     @GetMapping("/users")
-    public ResponseEntity<List<UserBusinessResponse>> listUsersInMyBusiness(
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
-        
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        }
-        
+    public ResponseEntity<List<UserBusinessResponse>> listUsersInMyBusiness() {
         List<UserBusinessResponse> users = userBusinessService.listUsersInMyBusiness();
         return ResponseEntity.ok(users);
     }
 
     @DeleteMapping("/users/{userId}")
     public ResponseEntity<Void> removeUserFromMyBusiness(
-            @PathVariable Long userId,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
-        
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateOwnerBySlug(businessSlug, userDetails.user().getId());
-        }
-        
+            @PathVariable Long userId) {
         userBusinessService.removeUserFromMyBusiness(userId);
         return ResponseEntity.noContent().build();
     }
@@ -60,14 +46,7 @@ public class UserBusinessController {
     @PatchMapping("/users/{userId}/commission")
     public ResponseEntity<Void> updateCommission(
             @PathVariable Long userId,
-            @Valid @RequestBody UpdateCommissionRequest request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
-        
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        }
-        
+            @Valid @RequestBody UpdateCommissionRequest request) {
         userBusinessService.updateCommission(userId, request.percentage());
         return ResponseEntity.noContent().build();
     }
