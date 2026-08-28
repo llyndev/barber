@@ -1,5 +1,6 @@
 package com.barbearia.barbearia.modules.email.service;
 
+import com.barbearia.barbearia.modules.account.model.AppUser;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
