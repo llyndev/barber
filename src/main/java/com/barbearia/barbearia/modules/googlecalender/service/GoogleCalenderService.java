@@ -451,16 +451,7 @@ public class GoogleCalenderService {
     }
 
     private Long getBusinessIdFromContext() {
-        String businessId = BusinessContext.getBusinessId();
-        if (businessId == null || businessId.isBlank()) {
-            throw new InvalidRequestException("X-Business-Slug obrigatorio para Google Calendar.");
-        }
-
-        try {
-            return Long.parseLong(businessId);
-        } catch (NumberFormatException ex) {
-            throw new InvalidRequestException("Business ID invalido no contexto.");
-        }
+        return BusinessContext.requireBusinessId();
     }
 
     private Business getBusinessEntityFromContext() {

@@ -44,9 +44,9 @@ public class OrderService {
     private final OrderMapper orderMapper;
 
     private Long getBusinessId() {
-        String id = BusinessContext.getBusinessId();
-        if (id == null) throw new IllegalStateException("Business Context not found");
-        return Long.parseLong(id);
+        return BusinessContext.findBusinessId().orElseThrow(
+                () -> new ResourceNotFoundException("Business id not found")
+        );
     }
 
     private Order loadOpenOrder(Long orderId, Long businessId) {
