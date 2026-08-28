@@ -33,29 +33,16 @@ public class BarberServiceService {
     private final BusinessRepository businessRepository;
 
     private Long getBusinessIdFromContext() {
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID not foun");
-        }
-        return Long.parseLong(businessIdStr);
+        return BusinessContext.requireBusinessId();
     }
 
     private void checkOwnerManagerPermission() {
-        String role = BusinessContext.getBusinessRole();
-        if (!"OWNER".equals(role) && !"MANAGER".equals(role)) {
-            throw new SecurityException("Unauthorized.");
-        }
+        BusinessContext.requireOwnerOrManger();
     }
 
     public List<BarberServiceResponse> listAll() {
 
-        String businessIdStr = BusinessContext.getBusinessId();
-
-        if (businessIdStr == null) {
-            throw new IllegalStateException("Business not found");
-        }
-
-        Long businessId = Long.parseLong(businessIdStr);
+        Long businessId = BusinessContext.requireBusinessId();
 
         List<BarberService> barberService = barberServiceRepository.findAllByBusinessIdAndActiveTrue(businessId);
 
@@ -66,11 +53,7 @@ public class BarberServiceService {
 
     public BarberServiceResponse getById(Long id) {
 
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null) {
-            throw new IllegalStateException("Nenhum business selecionado.");
-        }
-        Long businessId = Long.parseLong(businessIdStr);
+        Long businessId = BusinessContext.requireBusinessId();
 
         return barberServiceRepository.findByIdAndBusinessId(id, businessId) // CORRETO
             .map(BarberServiceMapper::toDTO)
@@ -86,13 +69,7 @@ public class BarberServiceService {
     public BarberService createService(BarberService service) {
 
 
-        String businessIdStr = BusinessContext.getBusinessId();
-
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Problem not resolved in the request. Business ID is missing from context.");
-        }
-
-        Long businessId = Long.parseLong(businessIdStr);
+        Long businessId = BusinessContext.requireBusinessId();
 
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (!(principal instanceof UserDetailsImpl userDetails)) {
@@ -123,11 +100,7 @@ public class BarberServiceService {
         }
         Long currentUserId = userDetails.user().getId();
 
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID is missing from context. ");
-        }
-        Long businessId = Long.parseLong(businessIdStr);
+        Long businessId = BusinessContext.requireBusinessId();
 
         boolean allowed = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(currentUserId, businessId, BusinessRole.OWNER)
                 || userBusinessRepository.existsByUserIdAndBusinessIdAndRole(currentUserId, businessId, BusinessRole.MANAGER);
