@@ -3,6 +3,9 @@ package com.barbearia.barbearia.modules.business.service;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
+import com.barbearia.barbearia.tenant.BusinessContext;
+import com.barbearia.barbearia.tenant.BusinessGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,18 +26,20 @@ public class ExpensesService {
 
     private final ExpensesRepository expensesRepository;
     private final ExpensesMapper expensesMapper;
-    private final BusinessService businessService;
+    private final BusinessGuard businessGuard;
+    private final BusinessRepository businessRepository;
 
     @Transactional(readOnly = true)
-    public List<ExpensesResponse> listExpenses(String slug, LocalDate start, LocalDate end, AppUser user) {
-        Business business = businessService.validateOwnerOrManagerBySlug(slug, user.getId());
+    public List<ExpensesResponse> listExpenses(LocalDate start, LocalDate end) {
+        businessGuard.requireOwnerOrManager();
+
+        Long business = BusinessContext.requireBusinessId();
 
         List<Expenses> expenses;
-        
         if (start != null && end != null) {
-            expenses = expensesRepository.findAllByBusinessIdAndDateBetweenOrderByDateDesc(business.getId(), start, end);
+            expenses = expensesRepository.findAllByBusinessIdAndDateBetweenOrderByDateDesc(business, start, end);
         } else {
-            expenses = expensesRepository.findAllByBusinessIdOrderByDateDesc(business.getId());
+            expenses = expensesRepository.findAllByBusinessIdOrderByDateDesc(business);
         }
 
         return expenses.stream()
@@ -43,21 +48,29 @@ public class ExpensesService {
     }
 
     @Transactional
-    public ExpensesResponse createExpense(String slug, ExpensesRequest request, AppUser user) {
-        Business business = businessService.validateOwnerOrManagerBySlug(slug, user.getId());
+    public ExpensesResponse createExpense(ExpensesRequest request) {
+        Long businessId = BusinessContext.requireBusinessId();
+
+        businessGuard.requireOwnerOrManager();
+
+        Business businessRef = businessRepository.getReferenceById(businessId);
 
         Expenses expenses = expensesMapper.toEntity(request);
-        expenses.setBusiness(business);
+        expenses.setBusiness(businessRef);
 
         return expensesMapper.toResponse(expensesRepository.save(expenses));
     }
 
     @Transactional
-    public ExpensesResponse updateExpenses(String slug, Long id, ExpensesRequest request, AppUser user) {
-        Business business = businessService.validateOwnerOrManagerBySlug(slug, user.getId());
+    public ExpensesResponse updateExpenses(Long id, ExpensesRequest request) {
+        businessGuard.requireOwnerOrManager();
+
+        Long businessId = BusinessContext.requireBusinessId();
+
+        Business business = businessRepository.getReferenceById(businessId);
 
         Expenses expense = expensesRepository.findByIdAndBusinessId(id, business.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Despesa não encontrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found."));
         
         expense.setTitle(request.title());
         expense.setDescription(request.description());
@@ -70,11 +83,15 @@ public class ExpensesService {
     }
 
     @Transactional
-    public void deleteExpense(String slug, Long id, AppUser user) {
-        Business business = businessService.validateOwnerOrManagerBySlug(slug, user.getId());
+    public void deleteExpense(Long id) {
+        businessGuard.requireOwnerOrManager();
+
+        Long businessId = BusinessContext.requireBusinessId();
+
+        Business business = businessRepository.getReferenceById(businessId);
 
         Expenses expense = expensesRepository.findByIdAndBusinessId(id, business.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Despesa não encontrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found."));
 
         expensesRepository.delete(expense);
     }
