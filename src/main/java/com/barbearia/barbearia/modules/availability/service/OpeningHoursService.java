@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.availability.service;
 
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
+import com.barbearia.barbearia.modules.business.model.Membership;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.availability.dto.request.OpeningHoursRequest;
@@ -19,13 +20,16 @@ import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.availability.repository.OpeningHoursRepository;
 import com.barbearia.barbearia.tenant.BusinessContext;
 
+import com.barbearia.barbearia.tenant.BusinessGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -39,20 +43,10 @@ public class OpeningHoursService {
     private final BusinessRepository businessRepository;
     private final UserRepository userRepository;
     private final UserBusinessRepository userBusinessRepository;
+    private final BusinessGuard businessGuard;
 
     private Long getBusinessIdFromContext() {
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID not found");
-        }
-        return Long.parseLong(businessIdStr);
-    }
-
-    private void checkOwnerManagerPermission() {
-        String role = BusinessContext.getBusinessRole();
-        if (!"OWNER".equals(role) && !"MANAGER".equals(role)) {
-            throw new SecurityException("Unauthorized");
-        }
+        return BusinessContext.requireBusinessId();
     }
 
     public List<OpeningHoursResponse> listAll() {
@@ -73,38 +67,42 @@ public class OpeningHoursService {
 
     @Transactional
     public List<OpeningHoursResponse> upsertWeeklySchedule(List<OpeningHoursRequest> request) {
-        checkOwnerManagerPermission();
-        Long businessId = getBusinessIdFromContext();
-        Business business = businessRepository.findById(businessId)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 
         if (request.size() != 7) {
             throw new IllegalArgumentException("The weekly schedule must contain exactly 7 days.");
         }
 
-        List<OpeningHours> rulesToSave = request.stream().map(dto -> {
-            Optional<OpeningHours> existingRuleOpt = openingHoursRepository.
-                    findByTypeRuleAndDayOfWeekAndBusinessIdAndBarberIsNull(TypeRule.RECURRING, dto.dayOfWeek(), businessId);
+        Long businessId = getBusinessIdFromContext();
+        businessGuard.requireOwnerOrManager();
 
-            OpeningHours entity;
-            if (existingRuleOpt.isPresent()) {
-                entity = existingRuleOpt.get();
+        Business business = businessRepository.getReferenceById(businessId);
+
+        List<OpeningHours> existingSchedules = openingHoursRepository.findAllByTypeRuleAndBusinessIdAndBarberIsNull(TypeRule.RECURRING, businessId);
+
+        Map<DayOfWeek, OpeningHours> existingMap = existingSchedules.stream()
+                .collect(Collectors.toMap(OpeningHours::getDayOfWeek, schedule -> schedule));
+
+        List<OpeningHours> rulesToSave = request.stream().map(dto -> {
+
+            OpeningHours entity = existingMap.get(dto.dayOfWeek());
+
+            if (entity != null) {
                 openingHoursMapper.updateEntityFromRequest(entity, dto);
             } else {
                 entity = openingHoursMapper.toEntity(dto);
+                entity.setTypeRule(TypeRule.RECURRING);
+                entity.setBusiness(business);
+                entity.setBarber(null);
             }
 
-            entity.setTypeRule(TypeRule.RECURRING);
-            entity.setBusiness(business);
-            entity.setBarber(null);
             return entity;
-        }).collect(Collectors.toList());
+        }).toList();
 
         List<OpeningHours> savedRules = openingHoursRepository.saveAll(rulesToSave);
 
         return savedRules.stream()
                 .map(openingHoursMapper::toResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Optional<OpeningHoursResponse> findForDate(LocalDate date) {
@@ -149,7 +147,9 @@ public class OpeningHoursService {
 
     @Transactional
     public SpecificDateResponse createSpecificDate(SpecificDateRequest request) {
-        checkOwnerManagerPermission();
+
+        businessGuard.requireOwnerOrManager();
+
         Long businessId = getBusinessIdFromContext();
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found")); 
@@ -168,7 +168,9 @@ public class OpeningHoursService {
 
     @Transactional
     public SpecificDateResponse updateSpecificDate(Long id, SpecificDateRequest request) {
-        checkOwnerManagerPermission();
+
+        businessGuard.requireOwnerOrManager();
+
         Long businessId = getBusinessIdFromContext();
 
         OpeningHours existingSpecificDate = openingHoursRepository.findByIdAndBusinessId(id, businessId)
@@ -183,7 +185,9 @@ public class OpeningHoursService {
 
     @Transactional
     public void deleteSpecificDate(Long id) {
-        checkOwnerManagerPermission();
+
+        businessGuard.requireOwnerOrManager();
+
         Long businessId = getBusinessIdFromContext();
 
 
@@ -205,58 +209,52 @@ public class OpeningHoursService {
 
     @Transactional
     public List<OpeningHoursResponse> upsertBarberWeeklySchedule(Long barberId, List<OpeningHoursRequest> request, AppUser currentUser) {
-        Long businessId = getBusinessIdFromContext();
-        String role = BusinessContext.getBusinessRole();
-
-        boolean isOwnerOrManager = "OWNER".equals(role) || "MANAGER".equals(role);
-        boolean isSelf = currentUser.getId().equals(barberId);
-
-        if (!isOwnerOrManager && !isSelf) {
-            throw new SecurityException("Unauthorized to update this schedule");
-        }
-
-        Business business = businessRepository.findById(businessId)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
-        
-        AppUser barber = userRepository.findById(barberId)
-                .orElseThrow(() -> new ResourceNotFoundException("Barber not found"));
-
-        // Validate if user is actually a barber in this business
-        boolean isBarber = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.BARBER) ||
-                           userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.OWNER) ||
-                           userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.MANAGER);
-        
-        if (!isBarber) {
-             throw new ResourceNotFoundException("User is not a member of this business");
-        }
-
         if (request.size() != 7) {
             throw new IllegalArgumentException("The weekly schedule must contain exactly 7 days.");
         }
 
-        List<OpeningHours> rulesToSave = request.stream().map(dto -> {
-            Optional<OpeningHours> existingRuleOpt = openingHoursRepository.
-                    findByTypeRuleAndDayOfWeekAndBusinessIdAndBarberId(TypeRule.RECURRING, dto.dayOfWeek(), businessId, barberId);
+        Long businessId = getBusinessIdFromContext();
 
-            OpeningHours entity;
-            if (existingRuleOpt.isPresent()) {
-                entity = existingRuleOpt.get();
+        if (!businessGuard.isOwnerOrManager() && !currentUser.getId().equals(barberId)) {
+            throw new SecurityException("Unauthorized to update this schedule.");
+        }
+
+        List<BusinessRole> allowedRoles = List.of(BusinessRole.BARBER, BusinessRole.MANAGER, BusinessRole.OWNER);
+        boolean isValidBarber = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(barberId, businessId, allowedRoles);
+
+        if (!isValidBarber) {
+            throw new IllegalArgumentException("The specified user is not an active barber in this business.");
+        }
+
+        Business business = businessRepository.getReferenceById(businessId);
+        AppUser barber = userRepository.getReferenceById(barberId);
+
+        List<OpeningHours> existingSchedules = openingHoursRepository
+                .findAllByTypeRuleAndBusinessIdAndBarberId(TypeRule.RECURRING, businessId, barberId);
+
+        Map<DayOfWeek, OpeningHours> existingMap = existingSchedules.stream()
+                .collect(Collectors.toMap(OpeningHours::getDayOfWeek, schedule -> schedule));
+
+        List<OpeningHours> rulesToSave = request.stream().map(dto -> {
+            OpeningHours entity = existingMap.get(dto.dayOfWeek());
+
+            if (entity != null) {
                 openingHoursMapper.updateEntityFromRequest(entity, dto);
             } else {
                 entity = openingHoursMapper.toEntity(dto);
+                entity.setTypeRule(TypeRule.RECURRING);
+                entity.setBusiness(business);
+                entity.setBarber(barber);
             }
 
-            entity.setTypeRule(TypeRule.RECURRING);
-            entity.setBusiness(business);
-            entity.setBarber(barber);
             return entity;
-        }).collect(Collectors.toList());
+        }).toList();
 
         List<OpeningHours> savedRules = openingHoursRepository.saveAll(rulesToSave);
 
         return savedRules.stream()
                 .map(openingHoursMapper::toResponse)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public Optional<OpeningHoursResponse> findForBarberAndDate(Long barberId, LocalDate date) {
