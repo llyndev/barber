@@ -42,12 +42,7 @@ public class OpeningHoursController {
 
     @PutMapping("/weekly-schedule")
     public ResponseEntity<List<OpeningHoursResponse>> upsertWeeklySchedule(
-            @Valid @RequestBody List<OpeningHoursRequest> request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader("X-Business-Slug") String businessSlug) {
-
-        businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-
+            @Valid @RequestBody List<OpeningHoursRequest> request) {
         List<OpeningHoursResponse> updatedSchedule = openingHoursService.upsertWeeklySchedule(request);
         return ResponseEntity.ok(updatedSchedule);
     }
@@ -60,12 +55,7 @@ public class OpeningHoursController {
 
     @PostMapping("/specific-date")
     public ResponseEntity<SpecificDateResponse> createSpecificDate(
-            @Valid @RequestBody SpecificDateRequest request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader("X-Business-Slug") String businessSlug) {
-        
-        businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        
+            @Valid @RequestBody SpecificDateRequest request) {
         SpecificDateResponse createdSpecificDate = openingHoursService.createSpecificDate(request);
         return ResponseEntity.ok(createdSpecificDate);
     }
@@ -73,32 +63,19 @@ public class OpeningHoursController {
     @PutMapping("/specific-date/{id}")
     public ResponseEntity<SpecificDateResponse> updateSpecificDate(
             @PathVariable Long id, 
-            @Valid @RequestBody SpecificDateRequest request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader("X-Business-Slug") String businessSlug) {
-        
-        businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        
+            @Valid @RequestBody SpecificDateRequest request) {
         SpecificDateResponse updateSpecificDate = openingHoursService.updateSpecificDate(id, request);
         return ResponseEntity.ok(updateSpecificDate);
     }
 
     @DeleteMapping("/specific-date/{id}")
-    public ResponseEntity<Void> deleteSpecificDate(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader("X-Business-Slug") String businessSlug) {
-        
-        businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        
+    public ResponseEntity<Void> deleteSpecificDate(@PathVariable Long id) {
         openingHoursService.deleteSpecificDate(id);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/barber/{barberId}/weekly-schedule")
-    public ResponseEntity<List<OpeningHoursResponse>> findBarberWeeklySchedule(
-            @PathVariable Long barberId,
-            @RequestHeader("X-Business-Slug") String businessSlug) {
+    public ResponseEntity<List<OpeningHoursResponse>> findBarberWeeklySchedule(@PathVariable Long barberId) {
         List<OpeningHoursResponse> weeklySchedule = openingHoursService.findBarberWeeklySchedule(barberId);
         return ResponseEntity.ok(weeklySchedule);
     }
@@ -107,11 +84,7 @@ public class OpeningHoursController {
     public ResponseEntity<List<OpeningHoursResponse>> upsertBarberWeeklySchedule(
             @PathVariable Long barberId,
             @Valid @RequestBody List<OpeningHoursRequest> request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader("X-Business-Slug") String businessSlug) {
-        
-        businessService.validateBusinessMemberBySlug(businessSlug, userDetails.user().getId());
-        
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
         List<OpeningHoursResponse> updatedSchedule = openingHoursService.upsertBarberWeeklySchedule(barberId, request, userDetails.user());
         return ResponseEntity.ok(updatedSchedule);
     }
