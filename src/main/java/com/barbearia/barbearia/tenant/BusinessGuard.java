@@ -16,7 +16,12 @@ public class BusinessGuard {
     public void requireOwner() {
         BusinessRole role = BusinessContext.requireRole();
         if (role != BusinessRole.OWNER) {
-            throw new SecurityException("Unahtorized.");
+            throw new SecurityException("Unauthorized.");
         }
+    }
+
+    public boolean isOwnerOrManager() {
+        BusinessRole role = BusinessContext.requireRole();
+        return role == BusinessRole.OWNER || role == BusinessRole.MANAGER;
     }
 }
