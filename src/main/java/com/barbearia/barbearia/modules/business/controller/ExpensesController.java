@@ -33,40 +33,27 @@ public class ExpensesController {
 
     @GetMapping
     public ResponseEntity<List<ExpensesResponse>> listExpenses(
-            @RequestHeader("X-Business-Slug") String slug,
             @RequestParam(required = false) LocalDate startDate,
-            @RequestParam(required = false) LocalDate endDate,
-            @AuthenticationPrincipal UserDetailsImpl userDetails
+            @RequestParam(required = false) LocalDate endDate
     ) {
-        return ResponseEntity.ok(expensesService.listExpenses(slug, startDate, endDate, userDetails.user()));
+        return ResponseEntity.ok(expensesService.listExpenses(startDate, endDate));
     }
 
     @PostMapping
-    public ResponseEntity<ExpensesResponse> createExpense(
-            @RequestHeader("X-Business-Slug") String slug,
-            @RequestBody @Valid ExpensesRequest request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        
-        return ResponseEntity.ok(expensesService.createExpense(slug, request, userDetails.user()));
+    public ResponseEntity<ExpensesResponse> createExpense(@RequestBody @Valid ExpensesRequest request) {
+        return ResponseEntity.ok(expensesService.createExpense(request));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ExpensesResponse> updateExpense(
-            @RequestHeader("X-Business-Slug") String slug,
             @PathVariable Long id,
-            @RequestBody @Valid ExpensesRequest request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        
-        return ResponseEntity.ok(expensesService.updateExpenses(slug, id, request, userDetails.user()));
+            @RequestBody @Valid ExpensesRequest request) {
+        return ResponseEntity.ok(expensesService.updateExpenses(id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteExpense(
-            @RequestHeader("X-Business-Slug") String slug,
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        
-        expensesService.deleteExpense(slug, id, userDetails.user());
+    public ResponseEntity<Void> deleteExpense(@PathVariable Long id) {
+        expensesService.deleteExpense(id);
         return ResponseEntity.noContent().build();
     }
 }
