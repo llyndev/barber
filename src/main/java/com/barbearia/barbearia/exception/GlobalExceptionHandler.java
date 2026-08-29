@@ -1,6 +1,8 @@
 package com.barbearia.barbearia.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -87,7 +89,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(IllegalStateException.class)
+    @ExceptionHandler(IllegalAccessException.class)
     public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException exception) {
         log.warn("Illegal state: {}", exception.getMessage());
         Map<String, String> body = Map.of("error", exception.getMessage());
@@ -106,5 +108,19 @@ public class GlobalExceptionHandler {
         log.warn("Bad request: {}", exception.getMessage());
         Map<String, String> body = Map.of("error", exception.getMessage());
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleEntityNotFound(EntityNotFoundException exception) {
+        log.warn("Entity not found: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "The requested resource was not found in the database.");
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        log.warn("Data integrity violation: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Invalid operation. Check if the related data actually exists or if there is duplicate information.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
 }
