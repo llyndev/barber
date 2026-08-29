@@ -195,23 +195,6 @@ public class BusinessService {
         return business;
     }
 
-    public Business validateOwnerOrManagerBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalAccessError("Acesso negado");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
-
-        boolean hasAcess = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(authenticatedUserId, business.getId(), List.of(BusinessRole.OWNER, BusinessRole.MANAGER));
-
-        if (!hasAcess) {
-            throw new SecurityException("Acesso negado");
-        }
-
-        return business;
-    }
-
     public Business validateOwnerOrManagerOrBarberBySlug(String businessSlug, Long authenticatedUserId) {
         if (businessSlug == null || businessSlug.isBlank()) {
             throw new IllegalAccessError("Acesso negado");
