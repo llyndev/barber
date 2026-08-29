@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class BarberServiceMapper {
 
-    public static BarberServiceResponse toDTO(BarberService barberService) {
+    public BarberServiceResponse toDTO(BarberService barberService) {
         if (barberService == null) {
             return null;
         }
@@ -34,6 +34,21 @@ public class BarberServiceMapper {
         barberService.setPrice(barberServiceRequest.price());
 
         return barberService;
+    }
+
+    public void updateEntityFromRequest(BarberServiceRequest request, BarberService entity) {
+        if (request.nameService() != null) {
+            entity.setNameService(request.nameService());
+        }
+        if (request.description() != null) {
+            entity.setDescription(request.description());
+        }
+        if (request.durationInMinutes() != null) {
+            entity.setDurationInMinutes(request.durationInMinutes());
+        }
+        if (request.price() != null) {
+            entity.setPrice(request.price());
+        }
     }
 
 }

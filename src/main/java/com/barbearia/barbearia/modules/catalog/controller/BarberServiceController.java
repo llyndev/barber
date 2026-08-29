@@ -6,6 +6,7 @@ import com.barbearia.barbearia.modules.business.model.Business;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.modules.catalog.service.BarberServiceService;
 import com.barbearia.barbearia.modules.business.service.BusinessService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
@@ -31,12 +32,7 @@ public class BarberServiceController {
 
     @GetMapping("/business/{slug}")
     public ResponseEntity<List<BarberServiceResponse>> getByBusinessSlug(@PathVariable String slug) {
-        // Busca a barbearia pelo slug
-        Business business = businessService.getBusinessBySlug(slug);
-        
-        // Retorna os serviços da barbearia
-        List<BarberServiceResponse> services = barberServiceService.findAllByBusinessId(business.getId());
-        return ResponseEntity.ok(services);
+        return ResponseEntity.ok(barberServiceService.findBusinessBySlug(slug));
     }
 
     @GetMapping("/{id}")
@@ -45,30 +41,13 @@ public class BarberServiceController {
     }
 
     @PostMapping
-    public ResponseEntity<BarberServiceResponse> create(
-            @RequestBody BarberServiceRequest barberServiceRequest, 
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
-        
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        }
-
-        BarberServiceResponse response = barberServiceService.save(barberServiceRequest, userDetails);
-
+    public ResponseEntity<BarberServiceResponse> create(@Valid @RequestBody BarberServiceRequest barberServiceRequest) {
+        BarberServiceResponse response = barberServiceService.save(barberServiceRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteById(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
-        
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        }
-        
+    public ResponseEntity<Void> deleteById(@PathVariable Long id) {
         barberServiceService.delete(id);
         return ResponseEntity.ok().build();
     }
@@ -76,15 +55,8 @@ public class BarberServiceController {
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<BarberServiceResponse> update(
-            @PathVariable Long id, 
-            @RequestBody BarberServiceRequest request,
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
-        
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
-        }
-        
+            @PathVariable Long id,
+            @Valid @RequestBody BarberServiceRequest request) {
         return ResponseEntity.ok(barberServiceService.update(id, request));
     }
 }

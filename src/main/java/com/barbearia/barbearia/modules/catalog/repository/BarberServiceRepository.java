@@ -10,5 +10,9 @@ public interface BarberServiceRepository extends JpaRepository<BarberService, Lo
 
     List<BarberService> findAllByBusinessIdAndActiveTrue(Long businessId);
 
+    List<BarberService> findAllByBusinessSlugAndActiveTrue(String slug);
+
+    List<BarberService> findAllByBusinessId(Long businessId);
+
     Optional<BarberService> findByIdAndBusinessId(Long id, Long businessId);
 }
