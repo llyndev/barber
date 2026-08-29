@@ -7,21 +7,25 @@ import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingProduct
 import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
 import com.barbearia.barbearia.modules.account.mapper.UserMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class SchedulingMapper {
 
-    public static SchedulingResponse toResponse(Scheduling scheduling) {
+    private final BarberServiceMapper barberServiceMapper;
+
+    public SchedulingResponse toResponse(Scheduling scheduling) {
 
         if (scheduling == null) {
             return null;
         }
 
         List<BarberServiceResponse> serviceResponses = scheduling.getBarberService().stream()
-                .map(BarberServiceMapper::toDTO)
+                .map(barberServiceMapper::toDTO)
                 .toList();
 
         List<SchedulingProductResponse> productResponses = scheduling.getProductsUsed() == null ? 
@@ -72,9 +76,9 @@ public class SchedulingMapper {
         );
     }
 
-    public static List<SchedulingResponse> toResponseList(List<Scheduling> scheduling) {
+    public List<SchedulingResponse> toResponseList(List<Scheduling> scheduling) {
         return scheduling.stream()
-                .map(SchedulingMapper::toResponse)
+                .map(this::toResponse)
                 .toList();
     }
 }
