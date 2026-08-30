@@ -37,18 +37,22 @@ public class RateLimiterService {
             .refillIntervally(3, Duration.ofHours(1))
             .build();
 
-    public void consume(String key, LimitType type) {
+    public void checkAvaiable(String key, LimitType type) {
+        Bucket bucket = bucketFor(key, type);
 
-        Bucket bucket = buckets.get(type.name() + ":" + key,
-                k -> Bucket.builder().addLimit(type.bandwidth()).build());
-
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
-
-        if (!probe.isConsumed()) {
-            long secondsToWait = probe.getNanosToWaitForRefill() / 1_000_000_000L;
-            throw new RateLimitExceededException(secondsToWait);
+        if (bucket.getAvailableTokens() < 1) {
+            long wait = bucket.estimateAbilityToConsume(1).getNanosToWaitForRefill() / 1_000_000_000L;
+            throw new RateLimitExceededException(wait);
         }
+    }
 
+    public void consume(String key, LimitType type) {
+        bucketFor(key, type).tryConsume(1);
+    }
+
+    private Bucket bucketFor(String key, LimitType type) {
+        return buckets.get(type.name() + ":" + key,
+                k -> Bucket.builder().addLimit(type.bandwidth()).build());
     }
 
     public enum LimitType {
