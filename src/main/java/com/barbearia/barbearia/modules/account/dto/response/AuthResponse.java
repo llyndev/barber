@@ -1,4 +1,11 @@
 package com.barbearia.barbearia.modules.account.dto.response;
 
-public record AuthResponse(String token) {
+import com.barbearia.barbearia.modules.account.model.AppUser.PlatformRole;
+
+public record AuthResponse(
+        String accessToken,
+        long expiresIn,
+        Long userId,
+        String email,
+        PlatformRole role) {
 }
