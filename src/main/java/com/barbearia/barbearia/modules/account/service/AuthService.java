@@ -1,40 +1,36 @@
 package com.barbearia.barbearia.modules.account.service;
 
-import com.barbearia.barbearia.modules.account.dto.request.AuthRequest;
-import com.barbearia.barbearia.modules.account.dto.response.AuthResponse;
 import com.barbearia.barbearia.modules.account.dto.response.UserResponse;
 import com.barbearia.barbearia.modules.account.mapper.UserMapper;
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
-import com.barbearia.barbearia.security.JwtUtil;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final JwtUtil jwtUtil;
     private final UserMapper userMapper;
     private final UserRepository userRepository;
 
-    public AuthResponse login(AuthRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
+    public Authentication login(String rawEmail, String password) {
+        String email = normalizeEmail(rawEmail);
+        return authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, password)
         );
+    }
 
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-
-        String token = jwtUtil.generateToken(userDetails);
-
-        return new AuthResponse(token);
+    public static String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     @Transactional(readOnly = true)
@@ -43,7 +39,7 @@ public class AuthService {
             throw new RuntimeException("User not authenticated");
         }
 
-        AppUser user = userRepository.findById(userDetails.user().getId())
+        AppUser user = userRepository.findById(userDetails.id())
             .orElseThrow(() -> new RuntimeException("User not found"));
 
         return userMapper.toDTO(user);
