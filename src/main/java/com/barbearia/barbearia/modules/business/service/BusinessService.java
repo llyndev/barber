@@ -6,8 +6,10 @@ import java.io.IOException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.common.address.service.AddressService;
 import com.barbearia.barbearia.modules.account.service.FileStorageService;
-import jakarta.transaction.Transactional;
+import com.barbearia.barbearia.security.UserDetailsImpl;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.barbearia.barbearia.modules.business.dto.request.BusinessRequest;
@@ -27,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class BusinessService {
 
     private final BusinessRepository businessRepository;
@@ -75,19 +78,11 @@ public class BusinessService {
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
     }
 
-    public Business getBusinessBySlug(String slug) {
-        return businessRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado para o slug: " + slug));
-    }
-
     @Transactional
-    public BusinessResponse create(BusinessRequest request, AppUser creator) {
-        if (creator == null) throw new IllegalArgumentException("Creator cannot be null");
+    public BusinessResponse create(BusinessRequest request) {
 
-        // Valida se o usuário é BUSINESS_OWNER
-        if (creator.getPlatformRole() != AppUser.PlatformRole.BUSINESS_OWNER) {
-            throw new SecurityException("Unauthorized");
-        }
+
+        if (creator == null) throw new IllegalArgumentException("Creator cannot be null");
 
         // Valida se o usuário tem plano ativo
         boolean hasActivePlan = creator.getDateExpirationAccount() != null
@@ -154,83 +149,6 @@ public class BusinessService {
         userBusinessRepository.save(ownerLink);
 
         return businessMapper.toResponse(saved);
-    }
-
-    public BusinessResponse validateOwnerBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalArgumentException("Business slug is mandatory.");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found for the slug: " + businessSlug));
-
-        boolean isOwner = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(
-                authenticatedUserId,
-                business.getId(),
-                BusinessRole.OWNER
-        );
-
-        if (!isOwner) {
-            throw new SecurityException("Access denied. Only the barbershop owner can perform this operation.");
-        }
-
-        return businessMapper.toResponse(business);
-    }
-
-
-    public Business validateBusinessMemberBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalAccessError("Acesso negado");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
-
-        boolean hasAcess = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(authenticatedUserId, business.getId(), List.of(BusinessRole.OWNER, BusinessRole.MANAGER, BusinessRole.BARBER));
-
-        if (!hasAcess) {
-            throw new SecurityException("Acesso negado");
-        }
-
-        return business;
-    }
-
-    public Business validateOwnerOrManagerOrBarberBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalAccessError("Acesso negado");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
-
-        boolean hasAcess = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(authenticatedUserId, business.getId(), List.of(BusinessRole.OWNER, BusinessRole.MANAGER, BusinessRole.BARBER));
-
-        if (!hasAcess) {
-            throw new SecurityException("Acesso negado");
-        }
-
-        return business;
-    }
-
-    public Business validateBarberBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalArgumentException("Business slug é obrigatório");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado para o slug: " + businessSlug));
-
-        boolean isBarber = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(
-                authenticatedUserId,
-                business.getId(),
-                BusinessRole.BARBER
-        );
-
-        if (!isBarber) {
-            throw new SecurityException("Acesso negado. Apenas o barbeiro pode realizar esta operação.");
-        }
-
-        return business;
     }
 
     @Transactional
