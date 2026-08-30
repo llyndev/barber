@@ -2,7 +2,17 @@ package com.barbearia.barbearia.modules.account.controller;
 
 import com.barbearia.barbearia.modules.account.dto.request.CompleteRegistrationRequest;
 import com.barbearia.barbearia.modules.account.dto.request.RegisterRequest;
+import com.barbearia.barbearia.modules.account.dto.request.TokenPair;
+import com.barbearia.barbearia.modules.account.dto.response.UserResponse;
+import com.barbearia.barbearia.modules.account.mapper.UserMapper;
+import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.service.RefreshTokenService;
 import com.barbearia.barbearia.modules.account.service.RegisterService;
+import com.barbearia.barbearia.security.UserDetailsImpl;
+import com.barbearia.barbearia.security.ratelimit.ClientIpResolver;
+import com.barbearia.barbearia.security.ratelimit.RateLimiterService;
+import com.barbearia.barbearia.security.ratelimit.RateLimiterService.LimitType;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,13 +28,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class RegisterController {
 
     private final RegisterService registerService;
+    private final RateLimiterService rateLimiter;
+    private final RefreshTokenService refreshTokenService;
+    private final UserMapper userMapper;
 
     @PostMapping
-    public ResponseEntity<String> register(@Valid @RequestBody RegisterRequest request) {
-        registerService.registerUser(request);
+    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request,
+                                           HttpServletRequest httpRequest) {
+
+        rateLimiter.consume(ClientIpResolver.resolve(httpRequest), LimitType.REGISTER);
+
+        AppUser user = registerService.registerUser(request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body("User registered successfully");
+                .body(userMapper.toDTO(user));
     }
 
     @PostMapping("/complete")
