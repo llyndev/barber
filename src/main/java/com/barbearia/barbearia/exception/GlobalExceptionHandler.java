@@ -3,6 +3,7 @@ package com.barbearia.barbearia.exception;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -121,6 +122,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
         log.warn("Data integrity violation: {}", exception.getMessage());
         Map<String, String> body = Map.of("error", "Invalid operation. Check if the related data actually exists or if there is duplicate information.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handleRateLimit(RateLimitExceededException exception) {
+        log.warn("Rate limit: {}", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                // Header padrão HTTP: o front sabe quando pode tentar de novo
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfterSeconds()))
+                .body(Map.of("error", exception.getMessage(), "code", "RATE_LIMIT_EXCEEDED"));
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleEmailExists(EmailAlreadyExistsException exception) {
+        log.warn("Email already exists: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Email already exists.");
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
 }
