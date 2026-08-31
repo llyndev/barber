@@ -24,6 +24,6 @@ public record AddressResponse(
         @JsonProperty("uf")
         String uf,
 
-        boolean erro
+        Boolean erro
 ) {
 }
