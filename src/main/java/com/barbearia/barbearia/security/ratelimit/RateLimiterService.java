@@ -37,6 +37,11 @@ public class RateLimiterService {
             .refillIntervally(3, Duration.ofHours(1))
             .build();
 
+    private static final Bandwidth CEP_LIMIT = Bandwidth.builder()
+            .capacity(30)
+            .refillIntervally(30, Duration.ofMinutes(1))
+            .build();
+
     public void checkAvaiable(String key, LimitType type) {
         Bucket bucket = bucketFor(key, type);
 
@@ -57,7 +62,8 @@ public class RateLimiterService {
 
     public enum LimitType {
         LOGIN(LOGIN_LIMIT),
-        REGISTER(REGISTER_LIMIT);
+        REGISTER(REGISTER_LIMIT),
+        CEP_LOOKUP(CEP_LIMIT);
 
         private final Bandwidth bandwidth;
         LimitType(Bandwidth bandwidth) { this.bandwidth = bandwidth; }
