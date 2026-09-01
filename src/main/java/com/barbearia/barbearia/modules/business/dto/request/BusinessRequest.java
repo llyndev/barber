@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.business.dto.request;
 
 import java.util.List;
 
+import com.barbearia.barbearia.modules.common.address.dto.request.AddressRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -22,12 +23,7 @@ public record BusinessRequest(
 
         String instagramLink,
         
-        @Size(min = 8, max = 8, message = "CEP must have 8 digits")
-        String cep,
-        
-        String numero,
-        
-        String complemento
+        AddressRequest address
 ) {
 
 }
