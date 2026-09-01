@@ -1,5 +1,7 @@
 package com.barbearia.barbearia.modules.common.address.mapper;
 
+import com.barbearia.barbearia.modules.common.address.dto.request.AddressRequest;
+import com.barbearia.barbearia.modules.common.address.dto.response.AddressResponseDTO;
 import org.springframework.stereotype.Component;
 
 import com.barbearia.barbearia.modules.common.address.dto.response.AddressResponse;
@@ -9,21 +11,43 @@ import com.barbearia.barbearia.modules.common.address.model.Address;
 public class AddressMapper {
 
 
-    public Address toEntity(AddressResponse response) {
-        if (response == null) {
+    public Address toEntity(AddressRequest request) {
+        if (request == null) {
             return null;
         }
 
-        Address address = new Address();
+        return Address.of(
+                request.cep(),
+                request.logradouro(),
+                request.complemento(),
+                request.bairro(),
+                request.numero(),
+                request.cidade(),
+                request.uf()
+        );
+    }
 
-        address.setCep(response.cep());
-        address.setLogradouro(response.logradouro());
-        address.setComplemento(response.complemento());
-        address.setBairro(response.bairro());
-        address.setNumero(response.numero());
-        address.setLocalidade(response.cidade());
-        address.setUf(response.uf());
+    public AddressResponseDTO toResponse(Address address) {
+        if (address == null) {
+            return null;
+        }
 
-        return address;
+        return new AddressResponseDTO(
+                formatCep(address.getCep()),
+                address.getLogradouro(),
+                address.getNumero(),
+                address.getComplemento(),
+                address.getBairro(),
+                address.getLocalidade(),
+                address.getUf()
+        );
+    }
+
+    private String formatCep(String cep) {
+        if (cep == null || cep.length() != 8) {
+            return cep;
+        }
+
+        return cep.substring(0, 5) + "-" + cep.substring(5);
     }
 }
