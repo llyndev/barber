@@ -63,10 +63,4 @@ public class AppUser{
     
     @OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
     private List<UserBusiness> userBusinesses;
-
-    public enum PlatformRole {
-        CLIENT,
-        BUSINESS_OWNER,
-        PLATFORM_ADMIN
-    }
 }
