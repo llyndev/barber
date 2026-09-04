@@ -1,5 +1,6 @@
 package com.barbearia.barbearia.modules.account.service;
 
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import com.barbearia.barbearia.modules.business.dto.request.PromoteToOwnerRequest;
 import com.barbearia.barbearia.modules.business.dto.request.UpdateRoleRequest;
 import com.barbearia.barbearia.modules.account.dto.request.UserRequest;
@@ -114,7 +115,7 @@ public class UserService {
 
         AppUser user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        user.setPlatformRole(AppUser.PlatformRole.valueOf(role.role()));
+        user.setPlatformRole(PlatformRole.valueOf(role.role()));
 
         AppUser updateUserRole = userRepository.save(user);
 
@@ -127,8 +128,8 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Atualiza role para BUSINESS_OWNER
-        user.setPlatformRole(AppUser.PlatformRole.BUSINESS_OWNER);
-        user.setPlantType(request.plantType().name());
+        user.setPlatformRole(PlatformRole.BUSINESS_OWNER);
+        user.setPlantType(request.plantType());
         user.setBusinessCreator(true);
         
         // Se houver data de expiração, atualiza
