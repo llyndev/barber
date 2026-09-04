@@ -4,6 +4,7 @@ import com.barbearia.barbearia.exception.EmailAlreadyExistsException;
 import com.barbearia.barbearia.modules.account.dto.request.CompleteRegistrationRequest;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import com.barbearia.barbearia.modules.leads.model.Lead;
 import com.barbearia.barbearia.modules.leads.model.LeadStatus;
 import com.barbearia.barbearia.modules.account.dto.request.RegisterRequest;
@@ -43,7 +44,7 @@ public class RegisterService {
         newUser.setName(request.name());
         newUser.setEmail(email);
         newUser.setTelephone(request.telephone());
-        newUser.setPlatformRole(AppUser.PlatformRole.CLIENT);
+        newUser.setPlatformRole(PlatformRole.CLIENT);
         newUser.setPassword(passwordEncoder.encode(request.password()));
 
         try {
@@ -76,7 +77,7 @@ public class RegisterService {
         newUser.setTelephone(lead.getTelephone());
         newUser.setDocument(request.document());
         newUser.setPassword(passwordEncoder.encode(request.password()));
-        newUser.setPlatformRole(AppUser.PlatformRole.BUSINESS_OWNER);
+        newUser.setPlatformRole(PlatformRole.BUSINESS_OWNER);
         newUser.setPlantType(lead.getPlan());
         newUser.setActive(true);
         newUser.setDateExpirationAccount(lead.getAccountExpirationDate());

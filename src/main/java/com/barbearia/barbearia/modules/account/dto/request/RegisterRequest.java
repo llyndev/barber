@@ -1,6 +1,6 @@
 package com.barbearia.barbearia.modules.account.dto.request;
 
-import com.barbearia.barbearia.modules.account.model.AppUser.PlatformRole;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
