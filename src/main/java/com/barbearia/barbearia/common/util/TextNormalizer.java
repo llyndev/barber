@@ -46,4 +46,10 @@ public class TextNormalizer {
         return text == null ? null : text.trim().replace("\\s+", " ");
     }
 
+    public static String escapeLikeWildcards(String term) {
+        return term.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
+    }
+
 }
