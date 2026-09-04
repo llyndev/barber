@@ -24,4 +24,5 @@ public interface UserBusinessRepository extends JpaRepository<UserBusiness, Long
 
     boolean existsByUserIdAndBusinessIdAndRoleIn(Long userId, Long businessId, List<BusinessRole> roles);
 
+    long countByUserIdAndStatus(Long userId, boolean status);
 }
