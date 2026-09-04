@@ -1,6 +1,6 @@
 package com.barbearia.barbearia.modules.account.dto.response;
 
-import com.barbearia.barbearia.modules.account.model.AppUser.PlatformRole;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 
 public record AuthResponse(
         String accessToken,
