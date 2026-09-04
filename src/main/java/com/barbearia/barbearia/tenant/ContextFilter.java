@@ -38,7 +38,7 @@ public class ContextFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().startsWith("/actuador");
+        return request.getRequestURI().startsWith("/actuator");
     }
 
     @Override
@@ -57,13 +57,15 @@ public class ContextFilter extends OncePerRequestFilter {
         String slug = businessSlug.trim().toLowerCase();
 
         try {
-            Long businessId = businessRepository.findIdBySlug(businessSlug)
+            Long businessId = businessRepository.findIdBySlug(slug)
                     .orElse(null);
 
             if (businessId == null) {
                 writeError(response, HttpServletResponse.SC_NOT_FOUND, "Business not found.");
                 return;
             }
+
+            BusinessContext.set(businessId, null);
 
             var auth = SecurityContextHolder.getContext().getAuthentication();
 
