@@ -3,16 +3,17 @@ package com.barbearia.barbearia.modules.business.service;
 import java.util.List;
 import java.io.IOException;
 
+import com.barbearia.barbearia.common.util.TextNormalizer;
 import com.barbearia.barbearia.exception.ConflictException;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
-import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
 import com.barbearia.barbearia.modules.common.address.service.AddressService;
 import com.barbearia.barbearia.modules.account.service.FileStorageService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +56,8 @@ public class BusinessService {
                 .toList();
     }
 
-    // Metodo para buscar barbearia por
+    // Metodo para buscar barbearias por nome, cidade e bairro
+    // TODO: Adicionar permissão para pegar localização do usuário e recomendar barbearias da sua cidade.
     public Page<BusinessSummaryResponse> searchBusinesses(String searchQuery, boolean includeInactive, Pageable pageable) {
         if (searchQuery == null || searchQuery.isBlank()) {
             Page<Business> page = includeInactive
@@ -64,26 +66,27 @@ public class BusinessService {
             return page.map(businessMapper::toSummary);
         }
 
-        String query = searchQuery.toLowerCase().trim();
+        String query = TextNormalizer.escapeLikeWildcards(searchQuery.toLowerCase().trim());
 
         if (query.length() < 2) {
             throw new InvalidRequestException("Enter at least 2 characters to search.");
         }
 
-        query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-
         return businessRepository.search(query, includeInactive, pageable)
                 .map(businessMapper::toSummary);
     }
 
-    public BusinessResponse getById(Long id) {
-        return businessRepository.findById(id)
-                .map(businessMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+    // Metodo que da sugestões para autocomplete no search
+    public List<BusinessSummaryResponse> suggest(String searchQuery, int limit) {
+        Pageable topResults = PageRequest.of(0, Math.min(limit, 10));
+
+        return businessRepository.search(TextNormalizer.escapeLikeWildcards(searchQuery), false, topResults)
+                .map(businessMapper::toSummary)
+                .getContent(); // extrai a List de dentro da Page
     }
 
-    public BusinessResponse getBySlug(String slug) {
-        return businessRepository.findBySlug(slug)
+    public BusinessResponse getById(Long id) {
+        return businessRepository.findById(id)
                 .map(businessMapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
     }
