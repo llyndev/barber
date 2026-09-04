@@ -85,7 +85,7 @@ public class OpeningHoursController {
             @PathVariable Long barberId,
             @Valid @RequestBody List<OpeningHoursRequest> request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        List<OpeningHoursResponse> updatedSchedule = openingHoursService.upsertBarberWeeklySchedule(barberId, request, userDetails.user());
+        List<OpeningHoursResponse> updatedSchedule = openingHoursService.upsertBarberWeeklySchedule(barberId, request, userDetails.id());
         return ResponseEntity.ok(updatedSchedule);
     }
 
