@@ -27,7 +27,7 @@ public record AddressRequest(
 
     @NotBlank(message = "Cidade é obrigatório.")
     @Size(max = 100)
-    String cidade,
+    String localidade, // cidade
 
     @NotBlank(message = "UF é obrigatória.")
     @Pattern(regexp = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO",
