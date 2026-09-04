@@ -18,9 +18,9 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
             SELECT b.* FROM business b
             WHERE (:includeInactive = true OR b.active = true)
                 AND (
-                       unaccent(b.name)         ILIKE '%' || unaccent(:query) || '%'
-                    OR unaccent(b.localidade)   ILIKE '%' || unaccent(:query) || '%'
-                    OR unaccent(b.bairro)       ILIKE '%' || unaccent(:query) || '%'
+                       unaccent(b.name)         ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.localidade)   ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.bairro)       ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
                     )
             """,
             // Query para contagem
@@ -28,9 +28,9 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
             SELECT count(*) FROM business b
             WHERE (:includeInactive = true OR b.active = true)
                 AND (
-                       unaccent(b.name)         ILIKE '%' || unaccent(:query) || '%'
-                    OR unaccent(b.localidade)   ILIKE '%' || unaccent(:query) || '%'
-                    OR unaccent(b.bairro)       ILIKE '%' || unaccent(:query) || '%'
+                       unaccent(b.name)         ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.localidade)   ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.bairro)       ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
                     )
             """,
             nativeQuery = true)
