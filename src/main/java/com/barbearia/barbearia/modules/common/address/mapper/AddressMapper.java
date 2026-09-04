@@ -19,10 +19,10 @@ public class AddressMapper {
         return Address.of(
                 request.cep(),
                 request.logradouro(),
+                request.numero(),
                 request.complemento(),
                 request.bairro(),
-                request.numero(),
-                request.cidade(),
+                request.localidade(),
                 request.uf()
         );
     }
