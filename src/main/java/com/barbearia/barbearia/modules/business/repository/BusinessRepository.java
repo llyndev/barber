@@ -1,9 +1,11 @@
 package com.barbearia.barbearia.modules.business.repository;
 
-import java.awt.print.Pageable;
+import java.util.List;
 import java.util.Optional;
 
+import com.barbearia.barbearia.modules.business.model.InvitationStatus;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.barbearia.barbearia.modules.business.model.Business;
@@ -41,5 +43,14 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
     Optional<Long> findIdBySlug(String businessId);
 
     Optional<Business> findByOwnerId(Long id);
+
+    @Query("SELECT b FROM Business b LEFT JOIN FETCH b.owner WHERE b.id = :id")
+    Optional<Business> findByIdWithOwner(@Param("id") Long id);
+
+    Page<Business> findAllByActiveTrue(Pageable pageable);
+
+    boolean existsBySlug(String slug);
+
+    long countByBusinessIdAndStatusIn(Long businessId, List<InvitationStatus> status);
 
 }
