@@ -7,9 +7,9 @@ import com.barbearia.barbearia.common.util.TextNormalizer;
 import com.barbearia.barbearia.exception.ConflictException;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
-import com.barbearia.barbearia.modules.common.address.service.AddressService;
 import com.barbearia.barbearia.modules.account.service.FileStorageService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -24,7 +24,6 @@ import com.barbearia.barbearia.modules.business.dto.response.BusinessResponse;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.common.address.mapper.AddressMapper;
 import com.barbearia.barbearia.modules.business.mapper.BusinessMapper;
-import com.barbearia.barbearia.modules.common.address.model.Address;
 import com.barbearia.barbearia.modules.business.model.Business;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
@@ -40,7 +39,6 @@ public class BusinessService {
 
     private final BusinessRepository businessRepository;
     private final BusinessMapper businessMapper;
-    private final AddressService addressService;
     private final AddressMapper addressMapper;
     private final UserBusinessRepository userBusinessRepository;
     private final FileStorageService fileStorageService;
@@ -125,27 +123,19 @@ public class BusinessService {
         return businessMapper.toResponse(saved);
     }
 
-    @Transactional
+    @Transactional // TODO: ARRUMAR ESSE METODO URGENTE!
     public BusinessResponse update(Long id, BusinessRequest request, AppUser user) {
         Business business = businessRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 
         boolean isOwner = business.getOwner().getId().equals(user.getId());
-        boolean isAdmin = user.getPlatformRole() == AppUser.PlatformRole.PLATFORM_ADMIN;
+        boolean isAdmin = user.getPlatformRole() == PlatformRole.PLATFORM_ADMIN;
 
         if (!isOwner && !isAdmin) {
             throw new IllegalArgumentException("Only owner or admin can update business");
         }
 
-        if (request.cep() != null && !request.cep().isBlank()) {
-            var addrResp = addressService.getCep(request.cep());
-            if (addrResp != null) {
-                Address address = addressMapper.toEntity(addrResp);
-                address.setNumero(request.numero());
-                address.setComplemento(request.complemento());
-                business.setAddress(address);
-            }
-        }
+        business.setAddress(addressMapper.toEntity(request.address()));
 
         business.setName(request.name());
         business.setDescription(request.description());
@@ -161,7 +151,7 @@ public class BusinessService {
         Business business = businessRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 
-        if (user.getPlatformRole() != AppUser.PlatformRole.PLATFORM_ADMIN) {
+        if (user.getPlatformRole() != PlatformRole.PLATFORM_ADMIN) {
             throw new SecurityException("Only admin can activate business");
         }
 
@@ -181,7 +171,7 @@ public class BusinessService {
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 
         boolean isOwner = business.getOwner().getId().equals(user.getId());
-        boolean isAdmin = user.getPlatformRole() == AppUser.PlatformRole.PLATFORM_ADMIN;
+        boolean isAdmin = user.getPlatformRole() == PlatformRole.PLATFORM_ADMIN;
 
         if (!isOwner && !isAdmin) {
             throw new SecurityException("Only owner or admin can deactivate business");
