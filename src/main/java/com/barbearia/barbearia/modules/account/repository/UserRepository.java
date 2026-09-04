@@ -1,6 +1,7 @@
 package com.barbearia.barbearia.modules.account.repository;
 
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -12,7 +13,7 @@ public interface UserRepository extends JpaRepository<AppUser, Long> {
 
     Optional<AppUser> findByGoogleSubject(String googleSubject);
 
-    List<AppUser> findAllByPlatformRole(AppUser.PlatformRole platformRole);
+    List<AppUser> findAllByPlatformRole(PlatformRole platformRole);
 
     boolean existsByEmail(String email);
 }
