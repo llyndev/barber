@@ -68,7 +68,7 @@ public class ContextFilter extends OncePerRequestFilter {
             var auth = SecurityContextHolder.getContext().getAuthentication();
 
             if (auth != null && auth.getPrincipal() instanceof UserDetailsImpl userDetails) {
-                Long userId = userDetails.user().getId();
+                Long userId = userDetails.id();
 
                 UserBusiness membership = userBusinessRepository
                         .findByUserIdAndBusinessId(userId, businessId)
