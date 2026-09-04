@@ -35,6 +35,7 @@ public class Business {
     @Column(nullable = false, length = 120, unique = true)
     private String slug; // subdominio
 
+    @ElementCollection
     @Column(name = "amenities")
     private List<String> amenities;
 
