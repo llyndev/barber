@@ -1,6 +1,7 @@
 package com.barbearia.barbearia.security;
 
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import org.springframework.security.core.CredentialsContainer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -17,7 +18,7 @@ public record UserDetailsImpl(
         Long id,
         String email,
         String passwordHash,
-        AppUser.PlatformRole platformRole,
+        PlatformRole platformRole,
         boolean active,
         boolean blocked,
         LocalDate expirationDate,
@@ -46,7 +47,7 @@ public record UserDetailsImpl(
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return authorities;
+        return List.of(new SimpleGrantedAuthority(platformRole.authority()));
     }
 
     @Override
