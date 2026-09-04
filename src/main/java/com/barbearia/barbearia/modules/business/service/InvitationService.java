@@ -5,6 +5,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
+import com.barbearia.barbearia.modules.business.model.*;
 import com.barbearia.barbearia.tenant.BusinessGuard;
 import org.springframework.stereotype.Service;
 
@@ -15,11 +16,6 @@ import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.business.mapper.InvitationMapper;
 import com.barbearia.barbearia.modules.business.mapper.UserBusinessMapper;
 import com.barbearia.barbearia.modules.account.model.AppUser;
-import com.barbearia.barbearia.modules.business.model.Business;
-import com.barbearia.barbearia.modules.business.model.BusinessRole;
-import com.barbearia.barbearia.modules.business.model.Invitation;
-import com.barbearia.barbearia.modules.business.model.PlanType;
-import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.business.repository.InvitationRepository;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
@@ -56,7 +52,7 @@ public class InvitationService {
             }
         );
 
-        invitationRepository.findByBusinessIdAndEmailAndStatus(businessId, request.userEmail(), Invitation.Status.PENDING).ifPresent(inv -> {
+        invitationRepository.findByBusinessIdAndEmailAndStatus(businessId, request.userEmail(), InvitationStatus.PENDING).ifPresent(inv -> {
             throw new IllegalArgumentException("There is already a pending invitation for this user.");
         });
 
@@ -84,7 +80,7 @@ public class InvitationService {
 
             PlanType ownerPlan;
             try {
-                ownerPlan = PlanType.valueOf(owner.getPlantType());
+                ownerPlan = owner.getPlantType();
             } catch (Exception e) {
                 throw new IllegalStateException("Barber shop owner without a plan set up.");
             }
@@ -94,7 +90,7 @@ public class InvitationService {
             long pendingInvites = invitationRepository.findAll().stream()
                 .filter(i -> i.getBusiness().getId().equals(businessId)
                         && i.getRole() == BusinessRole.BARBER 
-                        && i.getStatus() == Invitation.Status.PENDING)
+                        && i.getStatus() == InvitationStatus.PENDING)
                 .count();
 
             if ((currentBarbers + pendingInvites) >= ownerPlan.getMaxBarbers()) {
@@ -110,7 +106,7 @@ public class InvitationService {
                 .business(business)
                 .email(request.userEmail())
                 .role(request.role())
-                .status(Invitation.Status.PENDING)
+                .status(InvitationStatus.PENDING)
                 .token(UUID.randomUUID().toString()) // Token único
                 .createdAt(Instant.now())
                 .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS)) // Convite expira em 7 dias
@@ -129,7 +125,7 @@ public class InvitationService {
         }
 
         String userEmail = userDetails.user().getEmail();
-        List<Invitation> invitations = invitationRepository.findByEmailAndStatus(userEmail, Invitation.Status.PENDING);
+        List<Invitation> invitations = invitationRepository.findByEmailAndStatus(userEmail, InvitationStatus.PENDING);
 
         return invitations.stream()
                 .map(invitationMapper::toResponse)
@@ -145,7 +141,7 @@ public class InvitationService {
         String userEmail = userDetails.user().getEmail();
         AppUser user = userDetails.user();
 
-        Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, userEmail, Invitation.Status.PENDING)
+        Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, userEmail, InvitationStatus.PENDING)
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
     
         if (invitation.getExpiresAt().isBefore(Instant.now())) {
@@ -180,7 +176,7 @@ public class InvitationService {
         Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, userEmail, Invitation.Status.PENDING)
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
 
-        invitation.setStatus(Invitation.Status.CANCELED);
+        invitation.setStatus(InvitationStatus.CANCELED);
         invitationRepository.save(invitation);
     }
 
