@@ -19,7 +19,7 @@ public enum PlanType {
     }
 
     public boolean allowsAnotherBarber(long current) {
-        return current < maxBusiness;
+        return current < maxBarbers;
     }
 
     public boolean isUnlimitedBusiness() {
