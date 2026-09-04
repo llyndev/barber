@@ -15,7 +15,8 @@ public record BusinessRequest(
         String description,
         
         String telephone,
-        
+
+        @NotBlank(message = "Slug is required")
         @Size(max = 120, message = "Slug must not exceed 120 characters")
         String slug,
 
