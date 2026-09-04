@@ -17,8 +17,6 @@ import java.time.Instant;
 @Builder
 public class Invitation {
 
-    public enum Status { PENDING, ACCEPTED, EXPIRED, CANCELED }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -39,7 +37,7 @@ public class Invitation {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Status status;
+    private InvitationStatus status;
 
     @Column(nullable = false)
     private Instant expiresAt;
