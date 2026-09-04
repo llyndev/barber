@@ -3,6 +3,8 @@ package com.barbearia.barbearia.modules.business.repository;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,5 +26,11 @@ public interface UserBusinessRepository extends JpaRepository<UserBusiness, Long
 
     boolean existsByUserIdAndBusinessIdAndRoleIn(Long userId, Long businessId, List<BusinessRole> roles);
 
-    long countByUserIdAndStatus(Long userId, boolean status);
+    @Query("""
+            SELECT count(ub) FROM UserBusiness ub
+            WHERE ub.user.id = :userId
+            AND ub.role = :role
+            AND ub.business.active = true
+            """)
+    long countActiveBusinessesByUserIdAndRole(@Param("userId") Long userId, @Param("role") BusinessRole role);
 }
