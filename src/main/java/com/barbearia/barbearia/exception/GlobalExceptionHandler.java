@@ -140,4 +140,25 @@ public class GlobalExceptionHandler {
         Map<String, String> body = Map.of("error", "Email already exists.");
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
+
+    @ExceptionHandler(PlanLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handlePlanLimitException(PlanLimitExceededException exception) {
+        log.warn("Plan limit exceeded: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Plan limit exceed for this business.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(SlugAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleSlugAlreadyException(SlugAlreadyExistsException exception) {
+        log.warn("Slug already exists: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Plan limit exceed for this business.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, String>> handleConflictException(ConflictException exception) {
+        log.warn("Conflict exception: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Conflict exception.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
 }
