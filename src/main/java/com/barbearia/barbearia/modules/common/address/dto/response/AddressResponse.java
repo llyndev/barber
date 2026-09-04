@@ -19,7 +19,7 @@ public record AddressResponse(
         String bairro,
 
         @JsonProperty("localidade")
-        String cidade,
+        String localidade, // cidade
 
         @JsonProperty("uf")
         String uf,
