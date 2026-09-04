@@ -3,11 +3,17 @@ package com.barbearia.barbearia.modules.business.service;
 import java.util.List;
 import java.io.IOException;
 
+import com.barbearia.barbearia.exception.ConflictException;
+import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
+import com.barbearia.barbearia.modules.account.repository.UserRepository;
+import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
 import com.barbearia.barbearia.modules.common.address.service.AddressService;
 import com.barbearia.barbearia.modules.account.service.FileStorageService;
-import com.barbearia.barbearia.security.UserDetailsImpl;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,7 +26,6 @@ import com.barbearia.barbearia.modules.business.mapper.BusinessMapper;
 import com.barbearia.barbearia.modules.common.address.model.Address;
 import com.barbearia.barbearia.modules.business.model.Business;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
-import com.barbearia.barbearia.modules.business.model.PlanType;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
@@ -38,7 +43,11 @@ public class BusinessService {
     private final AddressMapper addressMapper;
     private final UserBusinessRepository userBusinessRepository;
     private final FileStorageService fileStorageService;
+    private final UserRepository userRepository;
+    private final PlanPolicy planPolicy;
+    private final SlugGenerator slugGenerator;
 
+    // Metodo para listar todas as barbearias
     public List<BusinessResponse> getAll(boolean includeInactive) {
         return businessRepository.findAll().stream()
                 .filter(business -> includeInactive || business.isActive())
@@ -46,24 +55,25 @@ public class BusinessService {
                 .toList();
     }
 
-    public List<BusinessResponse> searchBusinesses(String searchQuery, boolean includeInactive) {
+    // Metodo para buscar barbearia por
+    public Page<BusinessSummaryResponse> searchBusinesses(String searchQuery, boolean includeInactive, Pageable pageable) {
         if (searchQuery == null || searchQuery.isBlank()) {
-            return getAll(includeInactive);
+            Page<Business> page = includeInactive
+                    ? businessRepository.findAll(pageable)
+                    : businessRepository.findAllByActiveTrue(pageable);
+            return page.map(businessMapper::toSummary);
         }
 
         String query = searchQuery.toLowerCase().trim();
 
-        return businessRepository.findAll().stream()
-                .filter(business -> includeInactive || business.isActive())
-                .filter(business -> 
-                    business.getName().toLowerCase().contains(query) ||
-                    (business.getAddress() != null && (
-                        (business.getAddress().getLocalidade() != null && business.getAddress().getLocalidade().toLowerCase().contains(query)) ||
-                        (business.getAddress().getBairro() != null && business.getAddress().getBairro().toLowerCase().contains(query))
-                    ))
-                )
-                .map(businessMapper::toResponse)
-                .toList();
+        if (query.length() < 2) {
+            throw new InvalidRequestException("Enter at least 2 characters to search.");
+        }
+
+        query = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+
+        return businessRepository.search(query, includeInactive, pageable)
+                .map(businessMapper::toSummary);
     }
 
     public BusinessResponse getById(Long id) {
@@ -78,75 +88,36 @@ public class BusinessService {
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
     }
 
-    @Transactional
-    public BusinessResponse create(BusinessRequest request) {
+    @Transactional // @Valid no controller
+    public BusinessResponse create(BusinessRequest request, Long creatorId) {
+        AppUser creator = userRepository.findById(creatorId).orElseThrow(
+                () -> new ResourceNotFoundException("User not found"));
 
+        planPolicy.ensureCanCreateBusiness(creator);
 
-        if (creator == null) throw new IllegalArgumentException("Creator cannot be null");
+        Business business = businessMapper.toEntity(request);
 
-        // Valida se o usuário tem plano ativo
-        boolean hasActivePlan = creator.getDateExpirationAccount() != null
-                && creator.getDateExpirationAccount().isAfter(java.time.LocalDate.now());
-
-        if (!hasActivePlan) {
-            throw new SecurityException("Unauthorized");
-        }
-
-        // TODO: Melhorar validação de limite de plano
-        PlanType userPlan;
-        try {
-            userPlan = PlanType.valueOf(creator.getPlantType());
-        } catch (Exception e) {
-            throw new IllegalStateException("User without a defined plan type");
-        }
-
-        long ownedBusinesses = userBusinessRepository.countByUserIdAndRole(creator.getId(), BusinessRole.OWNER);
-        if (ownedBusinesses >= userPlan.getMaxBusiness()) {
-            throw new IllegalStateException("Your plan " + userPlan.name() + " allows only " + userPlan.getMaxBusiness() + " barber(s).");
-        }
-
-        if (request == null) throw new IllegalArgumentException("Request cannot be null");
-
-        if (request.name() == null || request.name().isBlank()) {
-            throw new IllegalArgumentException("Business name is required");
-        }
-
-        Business business = businessMapper.toRequest(request);
+        business.setSlug(slugGenerator.generateUnique(request.slug()));
+        business.setAddress(addressMapper.toEntity(request.address()));
         business.setOwner(creator);
 
-        // gerar slug simples se não informado
-        if (business.getSlug() == null || business.getSlug().isBlank()) {
-            business.setSlug(business.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-"));
+        Business saved;
+
+        try {
+
+            saved = businessRepository.save(business);
+
+            UserBusiness ownerLink = UserBusiness.builder()
+                    .user(creator)
+                    .business(saved)
+                    .role(BusinessRole.OWNER)
+                    .build();
+            userBusinessRepository.save(ownerLink);
+
+            businessRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("This address is already in use. Choose another name.");
         }
-
-        businessRepository.findBySlug(business.getSlug()).ifPresent(b -> {
-            throw new IllegalArgumentException("Slug in use");
-        });
-
-        // Define a data de expiração do plano baseada na conta do usuário
-        if (creator.getDateExpirationAccount() != null) {
-            business.setPlanExpirationDate(creator.getDateExpirationAccount().atTime(23, 59, 59));
-        }
-
-        // se cep informado, buscar endereço pelo AddressService e preencher número/complemento
-        if (request.cep() != null && !request.cep().isBlank()) {
-            var addrResp = addressService.getCep(request.cep());
-            if (addrResp != null) {
-                Address addr = addressMapper.toEntity(addrResp);
-                addr.setNumero(request.numero());
-                addr.setComplemento(request.complemento());
-                business.setAddress(addr);
-            }
-        }
-
-        Business saved = businessRepository.save(business);
-
-        UserBusiness ownerLink = UserBusiness.builder()
-                .user(creator)
-                .business(saved)
-                .role(BusinessRole.OWNER)
-                .build();
-        userBusinessRepository.save(ownerLink);
 
         return businessMapper.toResponse(saved);
     }
