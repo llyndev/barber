@@ -50,7 +50,4 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
     Page<Business> findAllByActiveTrue(Pageable pageable);
 
     boolean existsBySlug(String slug);
-
-    long countByBusinessIdAndStatusIn(Long businessId, List<InvitationStatus> status);
-
 }
