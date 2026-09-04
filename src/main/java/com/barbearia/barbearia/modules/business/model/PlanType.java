@@ -13,5 +13,17 @@ public enum PlanType {
 
     private final int maxBusiness;
     private final int maxBarbers;
+
+    public boolean allowsAnotherBusiness(long current) {
+        return current < maxBusiness;
+    }
+
+    public boolean allowsAnotherBarber(long current) {
+        return current < maxBusiness;
+    }
+
+    public boolean isUnlimitedBusiness() {
+        return maxBusiness == Integer.MAX_VALUE;
+    }
 }
 
