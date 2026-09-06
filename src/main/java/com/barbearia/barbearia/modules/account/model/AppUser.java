@@ -62,7 +62,7 @@ public class AppUser{
 
     private LocalDate dateExpirationAccount;
     
-    @OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<UserBusiness> userBusinesses;
 
     public boolean hasActivePlan() {
