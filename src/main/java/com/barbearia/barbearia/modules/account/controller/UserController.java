@@ -34,11 +34,6 @@ public class UserController {
         return userService.listBarbers();
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id){
-        userService.delete(id);
-        return ResponseEntity.noContent().build();
-    }
 
     @PutMapping("/{id}")
     public ResponseEntity<UserResponse> update(@PathVariable Long id, @RequestBody UserRequest userRequest) {
@@ -64,6 +59,27 @@ public class UserController {
     public ResponseEntity<Void> renewSubscription(@PathVariable Long id, @RequestParam(defaultValue = "30") int days) {
         userService.renewSubscription(id, days);
         return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ResponseEntity<Void> deactivate(@PathVariable Long id) {
+        userService.deactivate(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ResponseEntity<UserResponse> activate(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.activate(id));
+    }
+
+    @PostMapping("/{id}/block")
+    @PreAuthorize("hasRole('PLATFORM_ADMIN')")
+    public ResponseEntity<Void> block(@PathVariable Long id,
+                                      @RequestParam boolean blocked) {
+        userService.block(id, blocked);
+        return ResponseEntity.noContent().build();
     }
 
 }
