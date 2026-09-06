@@ -13,7 +13,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
 
     Optional<RefreshToken> findByJti(String jti);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE RefreshToken r SET r.revokedAt = :now " +
             "WHERE r.userId = :userId AND r.revokedAt is NULL")
     int revokedAllByUserId(@Param("userId") Long userId, @Param("now") Instant now);

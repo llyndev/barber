@@ -107,8 +107,10 @@ public class RefreshTokenService {
         entity.setExpiresAt(claims.getExpiration().toInstant());
         entity.setIpAddress(request.getRemoteAddr());
 
-        String ua = request.getHeader("User-Agente");
+        String ua = request.getHeader("User-Agent");
         entity.setUserAgent(ua == null ? null : ua.substring(0, Math.min(ua.length(), 255)));
+
+        refreshTokenRepository.save(entity);
     }
 
 }
