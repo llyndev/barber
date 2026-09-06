@@ -13,7 +13,7 @@ public record CepLookupResponse(
                 viaCep.cep().replaceAll("\\D", ""),
                 viaCep.logradouro(),
                 viaCep.bairro(),
-                viaCep.cidade(),
+                viaCep.localidade(),
                 viaCep.uf()
         );
     }
