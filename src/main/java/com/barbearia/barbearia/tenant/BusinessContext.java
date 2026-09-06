@@ -53,10 +53,6 @@ public final class BusinessContext {
         );
     }
 
-    private static final ThreadLocal<String> BUSINESS = new ThreadLocal<>();
-
-    private static final ThreadLocal<String> BUSINESS_ROLE = new ThreadLocal<>();
-
     public static BusinessScope capture() {
         return CONTEXT.get();
     }
