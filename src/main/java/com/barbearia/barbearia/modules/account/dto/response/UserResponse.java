@@ -16,5 +16,5 @@ public record UserResponse(
         boolean active,
         PlatformRole platformRole,
         String profileImage,
-        List<UserBusinessResponse> userBusinesses
+        List<MyMembershipResponse> memberships
 ){}

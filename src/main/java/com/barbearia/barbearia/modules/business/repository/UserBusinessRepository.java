@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.business.repository;
 
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,6 +19,7 @@ public interface UserBusinessRepository extends JpaRepository<UserBusiness, Long
 
     List<UserBusiness> findAllByBusinessId(Long businessId);
 
+    @EntityGraph(attributePaths = "business")
     List<UserBusiness> findAllByUserIdAndRole(Long userId, BusinessRole role);
 
     long countByUserIdAndRole(Long userId, BusinessRole role);
