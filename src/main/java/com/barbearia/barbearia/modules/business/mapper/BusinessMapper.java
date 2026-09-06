@@ -1,7 +1,7 @@
 package com.barbearia.barbearia.modules.business.mapper;
 
 import com.barbearia.barbearia.common.util.TextNormalizer;
-import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.dto.response.BusinessPublicResponse;
 import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
 import com.barbearia.barbearia.modules.common.address.mapper.AddressMapper;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +52,24 @@ public class BusinessMapper {
         );
     }
 
+    public BusinessPublicResponse toPublicResponse(Business business) {
+        if (business == null) return null;
+
+        return new BusinessPublicResponse(
+                business.getId(),
+                business.getName(),
+                business.getDescription(),
+                business.getTelephone(),
+                business.getSlug(),
+                business.getAmenities(),
+                business.isActive(),
+                business.getInstagramLink(),
+                buildImageUrl(business.getBusinessImage()),
+                buildImageUrl(business.getBackgroundImage()),
+                addressMapper.toResponse(business.getAddress())
+        );
+    }
+
     public BusinessSummaryResponse toSummary(Business business) {
         if (business == null) return null;
 
@@ -65,7 +83,8 @@ public class BusinessMapper {
                 address != null ? address.getBairro() : null,
                 address != null ? address.getNumero() : null,
                 address != null ? address.getLocalidade() : null,
-                address != null ? address.getUf() : null
+                address != null ? address.getUf() : null,
+                business.isActive()
         );
 
     }

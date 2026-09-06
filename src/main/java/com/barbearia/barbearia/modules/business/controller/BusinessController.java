@@ -1,9 +1,14 @@
 package com.barbearia.barbearia.modules.business.controller;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
+import com.barbearia.barbearia.exception.ExternalServiceException;
+import com.barbearia.barbearia.modules.account.dto.response.BusinessPublicResponse;
 import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
+import com.barbearia.barbearia.modules.business.model.BusinessImageType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -29,6 +34,7 @@ import com.barbearia.barbearia.modules.business.service.BusinessService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/business")
@@ -47,10 +53,9 @@ public class BusinessController {
         Page<BusinessSummaryResponse> result = businessService.searchBusinesses(q, true, pageable);
 
         return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(Duration.ofMinutes(1)).cachePublic())
+                .cacheControl(CacheControl.noCache())
                 .body(result);
     }
-
 
     // Busca barbearias por nome, cidade e bairro
     @GetMapping
@@ -66,15 +71,19 @@ public class BusinessController {
     }
 
     @GetMapping("/my-businesses")
-    public ResponseEntity<List<BusinessResponse>> listMyBusinesses(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        List<BusinessResponse> business = businessService.findAllByOwnerId(userDetails.id());
-        return ResponseEntity.ok(business);
+    public List<BusinessSummaryResponse> listMyBusinesses(@AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return businessService.findAllByOwnerId(userDetails.id());
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    public ResponseEntity<BusinessResponse> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(businessService.getById(id));
+    public BusinessResponse getById(@PathVariable Long id) {
+        return businessService.getById(id);
+    }
+
+    @GetMapping("/{slug}")
+    public ResponseEntity<BusinessPublicResponse> getPublicBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(businessService.getPublicBySlug(slug));
     }
 
     @PostMapping
@@ -87,41 +96,39 @@ public class BusinessController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PutMapping("/{id}")
-    public ResponseEntity<BusinessResponse> update(
+    @PutMapping
+    public BusinessResponse update(@RequestBody @Valid BusinessRequest request) {
+        return businessService.update(request);
+    }
+
+    @DeleteMapping
+    public BusinessResponse deactivate() {
+        return businessService.deactivate();
+    }
+
+    @PutMapping("/{id}/activate")
+    public BusinessResponse activate(
             @PathVariable Long id,
-            @Valid @RequestBody BusinessRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        BusinessResponse response = businessService.update(id, request, userDetails.user());
-        return ResponseEntity.ok(response);
+        return businessService.activate(id, userDetails.id());
     }
 
-    @DeleteMapping("/{slug}")
-    public ResponseEntity<BusinessResponse> deactivate(
-            @PathVariable String slug,
-            @AuthenticationPrincipal UserDetailsImpl userDetails
-    ) {
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    @PutMapping("/image")
+    public Map<String, String> updateImage(@RequestParam BusinessImageType type,
+                                           @RequestParam("file") MultipartFile file) {
+        try {
+            String fileName = businessService.updateBusinessImage(type, file);
+            return Map.of("fileNama", fileName);
+        } catch (IOException ex) {
+            throw new ExternalServiceException("Failed to save the image. Try again.");
         }
-        BusinessResponse response = businessService.deactivateBusiness(slug, userDetails.user());
-        return ResponseEntity.ok(response);
     }
 
-    @PutMapping("/{slug}/activate")
-    public ResponseEntity<BusinessResponse> activate(
-            @PathVariable String slug,
-            @AuthenticationPrincipal UserDetailsImpl userDetails
-    ) {
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        BusinessResponse response = businessService.activateBusiness(slug, userDetails.user());
-        return ResponseEntity.ok(response);
+    @DeleteMapping("/image")
+    public ResponseEntity<Void> removeImage(@RequestParam BusinessImageType type) {
+        businessService.removeBusinessImage(type);
+        return ResponseEntity.noContent().build();
     }
+
 }

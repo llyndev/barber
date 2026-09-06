@@ -19,8 +19,8 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
             WHERE (:includeInactive = true OR b.active = true)
                 AND (
                        unaccent(b.name)         ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
-                    OR unaccent(b.localidade)   ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
-                    OR unaccent(b.bairro)       ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.add_localidade)   ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.add_bairro)       ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
                     )
             """,
             // Query para contagem
@@ -29,8 +29,8 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
             WHERE (:includeInactive = true OR b.active = true)
                 AND (
                        unaccent(b.name)         ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
-                    OR unaccent(b.localidade)   ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
-                    OR unaccent(b.bairro)       ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.add_localidade)   ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
+                    OR unaccent(b.add_bairro)       ILIKE '%' || unaccent(:query) || '%' ESCAPE '\'
                     )
             """,
             nativeQuery = true)
@@ -40,12 +40,16 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
 
     Optional<Business> findBySlug(String slug);
 
-    Optional<Business> findByOwnerId(Long id);
+    Optional<Long> findIdBySlug(String businessId);
+
+    List<Business> findByOwnerId(Long id);
 
     @Query("SELECT b FROM Business b LEFT JOIN FETCH b.owner WHERE b.id = :id")
     Optional<Business> findByIdWithOwner(@Param("id") Long id);
 
     Page<Business> findAllByActiveTrue(Pageable pageable);
+
+    Optional<Business> findBySlugAndActiveTrue(String slug);
 
     boolean existsBySlug(String slug);
 }
