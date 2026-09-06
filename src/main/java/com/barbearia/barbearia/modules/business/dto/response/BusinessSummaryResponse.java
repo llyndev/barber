@@ -8,5 +8,6 @@ public record BusinessSummaryResponse(
         String bairro,
         String numero,
         String localidade,
-        String uf
+        String uf,
+        boolean active
 ) {}

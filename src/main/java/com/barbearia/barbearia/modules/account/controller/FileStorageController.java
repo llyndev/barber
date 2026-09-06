@@ -4,6 +4,7 @@ import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.account.dto.UploadResponse;
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
+import com.barbearia.barbearia.modules.business.model.BusinessImageType;
 import com.barbearia.barbearia.modules.business.service.BusinessService;
 import com.barbearia.barbearia.modules.account.service.FileStorageService;
 import com.barbearia.barbearia.security.UserDetailsImpl;
@@ -14,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.util.Map;
+import java.io.IOException;
 
 @RestController
 @RequestMapping("/api/uploads")
@@ -29,7 +30,7 @@ public class FileStorageController {
     public ResponseEntity<UploadResponse> uploadProfilePhoto(@AuthenticationPrincipal UserDetailsImpl userDetails,
                                                              @RequestParam("file") MultipartFile file) {
         
-        Long userId = userDetails.user().getId();
+        Long userId = userDetails.id();
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -60,7 +61,7 @@ public class FileStorageController {
 
     @DeleteMapping("/profile")
     public ResponseEntity<Void> deleteProfileImage(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        Long userId = userDetails.user().getId();
+        Long userId = userDetails.id();
         AppUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
@@ -73,35 +74,25 @@ public class FileStorageController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/business/{businessId}/{type}")
+    @PostMapping("/business/{type}")
     public ResponseEntity<UploadResponse> uploadBusinessImage(
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @PathVariable Long businessId,
-            @PathVariable String type,
-            @RequestParam("file") MultipartFile file) {
-        
-        try {
-            String fileName = businessService.updateBusinessImage(businessId, userDetails.user().getId(), type, file);
+            @PathVariable BusinessImageType type,
+            @RequestParam("file") MultipartFile file) throws IOException {
 
-            String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                    .path("/uploads/")
-                    .path(fileName)
-                    .toUriString();
+        String fileName = businessService.updateBusinessImage(type, file);
+        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+                .path("/uploads/")
+                .path(fileName)
+                .toUriString();
 
-            return ResponseEntity.ok(new UploadResponse(fileDownloadUri, fileName));
-
-        } catch (Exception e) {
-            throw new RuntimeException("Could not store the file. Error: " + e.getMessage());
-        }
+        return ResponseEntity.ok(new UploadResponse(fileDownloadUri, fileName));
     }
 
-    @DeleteMapping("/business/{businessId}/{type}")
+    @DeleteMapping("/business/{type}")
     public ResponseEntity<Void> deleteBusinessImage(
-            @AuthenticationPrincipal UserDetailsImpl userDetails,
-            @PathVariable Long businessId,
-            @PathVariable String type) {
+            @PathVariable BusinessImageType type) {
         
-        businessService.removeBusinessImage(businessId, userDetails.user().getId(), type);
+        businessService.removeBusinessImage(type);
         return ResponseEntity.noContent().build();
     }
 }
