@@ -32,7 +32,7 @@ public class TextNormalizer {
                 .trim();
 
         slug = NON_ALPHANUMERIC.matcher(slug).replaceAll("-");
-        slug = EDGE_HYPHENS.matcher(slug).replaceAll("-");
+        slug = EDGE_HYPHENS.matcher(slug).replaceAll("");
 
         if (slug.isEmpty()) {
             throw new IllegalArgumentException(
@@ -43,7 +43,7 @@ public class TextNormalizer {
 
     // Colapsa espaços múltiplos: "João   da   Silva" → "João da Silva"
     public static String collapseSpaces(String text) {
-        return text == null ? null : text.trim().replace("\\s+", " ");
+        return text == null ? null : text.trim().replaceAll("\\s+", " ");
     }
 
     public static String escapeLikeWildcards(String term) {
