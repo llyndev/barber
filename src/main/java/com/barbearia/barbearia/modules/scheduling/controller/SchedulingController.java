@@ -33,54 +33,44 @@ public class SchedulingController {
     private final BusinessService businessService;
 
     @GetMapping
-    public ResponseEntity<List<SchedulingResponse>> schedulingList(
-        @RequestHeader("X-Business-Slug") String businessSlug,
-        @AuthenticationPrincipal UserDetailsImpl userDetails) {
+    public ResponseEntity<List<SchedulingResponse>> listAll(@PathVariable Long businessId) {
 
-        Business business = businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
- 
-        List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(business.getId());
+//        Business business = businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
+
+        List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(businessId);
 
         return ResponseEntity.ok(schedulings);
     }
 
-    @GetMapping("/business")
-    public ResponseEntity<List<SchedulingResponse>> listSchedulings(
-            @RequestHeader("X-Business-Slug") String businessSlug,
-            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+    @GetMapping("/{id}/business")
+    public ResponseEntity<List<SchedulingResponse>> listSchedulings(@PathVariable Long businessId) {
         
         // Valida se o usuário autenticado é o owner ou manager da barbearia e retorna a entidade Business
-        Business business = businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
+//        Business business = businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
         
         // Retorna os agendamentos da barbearia
-        List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(business.getId());
+        List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(businessId);
         return ResponseEntity.ok(schedulings);
     }
 
     @GetMapping("/business/{slug}")
-    public ResponseEntity<List<SchedulingResponse>> listSchedulingsBySlug(
-            @PathVariable String slug,
-            @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        
-        Business business = businessService.validateOwnerOrManagerBySlug(slug, userDetails.user().getId());
-        
+    public ResponseEntity<List<SchedulingResponse>> listSchedulingsBySlug(@PathVariable String slug) {
+
+////        Business business = businessService.validateOwnerOrManagerBySlug(slug, userDetails.user().getId());
+
         List<SchedulingResponse> schedulings = schedulingService.findAllByBusinessId(business.getId());
         return ResponseEntity.ok(schedulings);
     }
 
     @GetMapping("/business/{slug}/range")
     public ResponseEntity<List<SchedulingResponse>> listSchedulingsByDateRange(
-            @PathVariable String slug,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @AuthenticationPrincipal UserDetailsImpl userDetails) {
-
-        Business business = businessService.validateOwnerOrManagerBySlug(slug, userDetails.user().getId());
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        List<SchedulingResponse> schedulings = schedulingService.getByDateRange(startDateTime, endDateTime, business.getId());
+        List<SchedulingResponse> schedulings = schedulingService.getByDateRange(startDateTime, endDateTime);
         return ResponseEntity.ok(schedulings);
     }
 
@@ -91,12 +81,12 @@ public class SchedulingController {
 
     @GetMapping("/per-customer")
     public List<SchedulingResponse> schedulingGetByClientId(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return schedulingService.getByClientId(userDetails.user().getId());
+        return schedulingService.getByClientId(userDetails.id());
     }
 
     @GetMapping("/per-barber")
     public List<SchedulingResponse> schedulingGetByBarberId(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return schedulingService.getByBarberId(userDetails.user().getId());
+        return schedulingService.getByBarberId(userDetails.id());
     }
 
     @GetMapping("/per-day")
@@ -119,11 +109,11 @@ public class SchedulingController {
     public ResponseEntity<SchedulingResponse> newScheduling(@AuthenticationPrincipal UserDetailsImpl userDetails,
             @Valid @RequestBody SchedulingRequest schedulingRequest) {
 
-        Long clientId = userDetails.user().getId();
+        Long clientId = userDetails.id();
 
         Scheduling newScheduling = schedulingService.createScheduling(clientId, schedulingRequest);
 
-        SchedulingResponse schedulingResponse = SchedulingMapper.toResponse(newScheduling);
+        SchedulingResponse schedulingResponse = schedulingMapper.toResponse(newScheduling);
         return ResponseEntity.status(HttpStatus.CREATED).body(schedulingResponse);
     }
 
