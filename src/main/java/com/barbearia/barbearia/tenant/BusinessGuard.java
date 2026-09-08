@@ -24,4 +24,14 @@ public class BusinessGuard {
         BusinessRole role = BusinessContext.requireRole();
         return role == BusinessRole.OWNER || role == BusinessRole.MANAGER;
     }
+
+    public boolean isOwnerOrManagerOrBarber() {
+        BusinessRole role = BusinessContext.requireRole();
+        return role == BusinessRole.OWNER || role == BusinessRole.MANAGER || role == BusinessRole.BARBER;
+    }
+
+    public boolean isBarber() {
+        BusinessRole role = BusinessContext.requireRole();
+        return role == BusinessRole.BARBER;
+    }
 }
