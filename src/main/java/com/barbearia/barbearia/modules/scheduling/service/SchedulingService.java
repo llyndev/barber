@@ -32,6 +32,7 @@ import com.barbearia.barbearia.modules.orders.service.OrderService;
 import com.barbearia.barbearia.modules.orders.dto.request.CreateOrderRequest;
 import com.barbearia.barbearia.modules.googlecalender.service.GoogleCalenderService;
 
+import com.barbearia.barbearia.tenant.BusinessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class SchedulingService {
 
     private static final int SLOT_MINUTES = 15;
@@ -65,80 +67,104 @@ public class SchedulingService {
     private final InventoryService inventoryService;
     private final ProductRepository productRepository;
     private final GoogleCalenderService googleCalenderService;
+    private final SchedulingMapper schedulingMapper;
+    private final BusinessGuard businessGuard;
 
-    private Long getBusinessIdFromContext() {
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            throw new IllegalStateException("Business ID não encontrado");
-        }
-
-        return Long.parseLong(businessIdStr);
-    }
-
-    private Business getBusinessEntityFromContext() {
-        Long businessId = getBusinessIdFromContext();
-        return businessRepository.findById(businessId)
-                .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
-    }
-
-    @Transactional(readOnly = true)
+    // Listar todos os agendamentos para as roles owner ou manager
     public List<SchedulingResponse> listAll() {
-        Long businessId = getBusinessIdFromContext();
+        businessGuard.requireOwnerOrManager();
+
+        Long businessId = BusinessContext.requireBusinessId();
         List<Scheduling> scheduling = schedulingRepository.findAllByBusinessId(businessId);
-        return SchedulingMapper.toResponseList(scheduling);
+        return schedulingMapper.toResponseList(scheduling);
     }
 
     @Transactional(readOnly = true)
-    public List<SchedulingResponse> findAllByBusinessId(Long businessId) {
-        List<Scheduling> scheduling = schedulingRepository.findAllByBusinessId(businessId);
-        return SchedulingMapper.toResponseList(scheduling);
-    }
+    public List<SchedulingResponse> getByDateRange(LocalDateTime start, LocalDateTime end) {
+        Long businessId = BusinessContext.requireBusinessId();
 
-    @Transactional(readOnly = true)
-    public List<SchedulingResponse> getByDateRange(LocalDateTime start, LocalDateTime end, Long businessId) {
         List<Scheduling> scheduling = schedulingRepository.findByDateTimeBetweenAndBusinessId(start, end, businessId);
-        return SchedulingMapper.toResponseList(scheduling);
+        return schedulingMapper.toResponseList(scheduling);
     }
 
-    @Transactional(readOnly = true)
     public SchedulingResponse getById(Long id) {
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
+
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(id, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Agendamento não encontrado"));
-        return SchedulingMapper.toResponse(scheduling);
+        return schedulingMapper.toResponse(scheduling);
     }
 
-    @Transactional(readOnly = true)
     public List<SchedulingResponse> getByClientId(Long id) {
         List<Scheduling> scheduling = schedulingRepository.findByUser_Id(id);
-        return SchedulingMapper.toResponseList(scheduling);
+        return schedulingMapper.toResponseList(scheduling);
     }
 
     public List<SchedulingResponse> getByBarberId(Long id) {
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
+
         List<Scheduling> scheduling = schedulingRepository.findByBarber_IdAndBusinessId(id, businessId);
-        return SchedulingMapper.toResponseList(scheduling);
+        return schedulingMapper.toResponseList(scheduling);
     }
 
     public List<SchedulingResponse> getByDateTime(LocalDateTime start, LocalDateTime end) {
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
         List<Scheduling> scheduling = schedulingRepository.findByDateTimeBetweenAndBusinessId(start, end, businessId);
-        return SchedulingMapper.toResponseList(scheduling);
+        return schedulingMapper.toResponseList(scheduling);
     }
 
     @Transactional
     public Scheduling createScheduling(Long authenticatedUserId, SchedulingRequest request) {
         log.info("Creating scheduling. Authenticated User: {}, Request: {}", authenticatedUserId, request);
 
-        Long businessId = getBusinessIdFromContext();
-        Business business = getBusinessEntityFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
+        Business business = businessRepository.getReferenceById(businessId);
 
-        AppUser clientUser = null;
-        String clientName = null;
+        AppUser clientUser = userRepository.findById(authenticatedUserId).orElseThrow(
+                () -> new ResourceNotFoundException("User not found."));
 
-        boolean isStaff = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(authenticatedUserId, businessId, BusinessRole.OWNER) ||
-                          userBusinessRepository.existsByUserIdAndBusinessIdAndRole(authenticatedUserId, businessId, BusinessRole.MANAGER) ||
-                          userBusinessRepository.existsByUserIdAndBusinessIdAndRole(authenticatedUserId, businessId, BusinessRole.BARBER);
+        AppUser barber = userRepository.getReferenceById(request.barberId());
+
+        boolean isBarberInThisBusiness = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barber.getId(), businessId, BusinessRole.BARBER);
+
+        if (!isBarberInThisBusiness) {
+            throw new ResourceNotFoundException("Invalid barber");
+        }
+
+        List<BarberService> barberService = barberServiceRepository.findAllById(request.barberServiceIds());
+
+        List<BarberService> validServices = barberService.stream()
+                .filter(service -> service.getBusiness().getId().equals(businessId))
+                .toList();
+
+        if (barberService.isEmpty() || validServices.size() != request.barberServiceIds().size()) {
+            throw new ResourceNotFoundException("Serviço não encontrado");
+        }
+
+        LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
+
+        Scheduling sched = new Scheduling();
+        sched.setUser(clientUser);
+        sched.setClientName(clientUser.getName());
+        sched.setBarber(barber);
+        sched.setBarberService(validServices);
+        sched.setDateTime(start);
+        sched.setStates(AppointmentStatus.SCHEDULED);
+        sched.setBusiness(business);
+
+        Scheduling saved = schedulingRepository.save(sched);
+        log.info("Agendamento criado com sucesso ID: {}", saved.getId());
+
+        googleCalenderService.syncSchedulingCreated(saved);
+
+        return saved;
+
+    }
+
+    public Scheduling createStaffScheduling(Long userId, SchedulingRequest request) {
+        // TODO: FUNCIONARIOS PODEM REALIZAR UM AGENDAMNETO MANUALMENTE PARA UM CLIENTE
+
+        boolean isStaff = businessGuard.isOwnerOrManagerOrBarber();
 
         if (isStaff) {
             if (request.clientId() != null) {
@@ -157,47 +183,7 @@ public class SchedulingService {
             clientUser = userService.getEntityById(authenticatedUserId);
         }
 
-        AppUser barber = userService.getEntityById(request.barberId());
-
-        boolean isBarberInThisBusiness = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barber.getId(), businessId, BusinessRole.BARBER);
-
-        if (!isBarberInThisBusiness) {
-            throw new ResourceNotFoundException("Barbeiro inválido");
-        }
-
-
-        List<BarberService> barberService = barberServiceRepository.findAllById(request.barberServiceIds());
-
-        List<BarberService> validServices = barberService.stream()
-                .filter(service -> service.getBusiness().getId().equals(businessId))
-                .toList();
-
-        if (barberService.isEmpty() || validServices.size() != request.barberServiceIds().size()) {
-            throw new ResourceNotFoundException("Serviço não encontrado");
-        }
-
-        LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
-        
-        if (!isStaff || !Boolean.TRUE.equals(request.force())) {
-            ensureAvailableOrThrow(barber.getId(), validServices, start);
-        }
-
-        Scheduling sched = new Scheduling();
-        sched.setUser(clientUser);
-        sched.setClientName(clientName);
-        sched.setBarber(barber);
-        sched.setBarberService(validServices);
-        sched.setDateTime(start);
-        sched.setStates(AppointmentStatus.SCHEDULED);
-        sched.setBusiness(business);
-
-        Scheduling saved = schedulingRepository.save(sched);
-        log.info("Agendamento criado com sucesso ID: {}", saved.getId());
-
-        googleCalenderService.syncSchedulingCreated(saved);
-
-        return saved;
-
+        return null;
     }
 
     @Transactional
