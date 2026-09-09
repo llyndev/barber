@@ -30,6 +30,9 @@ public class Scheduling {
     @Column(name = "client_name")
     private String clientName;
 
+    @Column(name = "client_number")
+    private String clientNumber;
+
     @ManyToOne()
     @JoinColumn(name = "barber_id")
     private AppUser barber;

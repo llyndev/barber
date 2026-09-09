@@ -116,26 +116,19 @@ public class SchedulingController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> cancelClient(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
-
-        Long clientId = userDetails.user().getId();
-
-        schedulingService.cancelClient(id, clientId, userDetails);
+    public ResponseEntity<Void> cancelClient(@AuthenticationPrincipal UserDetailsImpl userDetails, @PathVariable Long schedulingId) {
+        schedulingService.cancelClient(userDetails.id(), schedulingId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/barber/{id}")
     public ResponseEntity<Void> cancelByBusinessMember(
-            @PathVariable Long id, 
+            @PathVariable Long schedulingId,
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestBody ReasonRequest reasonRequest,
             @RequestHeader(value = "X-Business-Slug", required = false) String businessSlug) {
         
-        if (businessSlug != null && !businessSlug.isBlank()) {
-            businessService.validateBusinessMemberBySlug(businessSlug, userDetails.user().getId());
-        }
-        
-        schedulingService.cancelByBusinessMember(id, userDetails.user().getId(), reasonRequest.reason(), userDetails);
+        schedulingService.cancelByBusinessMember(schedulingId, userDetails.id(), reasonRequest);
 
         return ResponseEntity.noContent().build();
     }
@@ -155,9 +148,7 @@ public class SchedulingController {
             businessService.validateOwnerOrManagerBySlug(businessSlug, userDetails.user().getId());
         }
 
-        Long barberId = userDetails.user().getId();
-
-        Scheduling scheduling = schedulingService.endService(id, request, barberId);
+        Scheduling scheduling = schedulingService.endService(id, request, userDetails.id());
 
         SchedulingResponse schedulingResponse = SchedulingMapper.toResponse(scheduling);
 

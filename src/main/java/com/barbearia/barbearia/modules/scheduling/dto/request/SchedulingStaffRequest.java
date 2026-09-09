@@ -16,9 +16,11 @@ public record SchedulingStaffRequest(
         @NotNull(message = "The date and time must be informed.")
         LocalDateTime dateTime,
 
-        Long clientId,
+        @NotNull(message = "The client name must be informed.")
         String clientName,
-        Boolean force
+
+        @NotNull(message = "The client number is required.")
+        String clientNumber
 
 ) {
 }

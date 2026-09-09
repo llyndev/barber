@@ -2,7 +2,6 @@ package com.barbearia.barbearia.modules.availability.service;
 
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
-import com.barbearia.barbearia.modules.business.model.Membership;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.availability.dto.request.OpeningHoursRequest;
@@ -208,14 +207,14 @@ public class OpeningHoursService {
     }
 
     @Transactional
-    public List<OpeningHoursResponse> upsertBarberWeeklySchedule(Long barberId, List<OpeningHoursRequest> request, AppUser currentUser) {
+    public List<OpeningHoursResponse> upsertBarberWeeklySchedule(Long barberId, List<OpeningHoursRequest> request, Long userId) {
         if (request.size() != 7) {
             throw new IllegalArgumentException("The weekly schedule must contain exactly 7 days.");
         }
 
         Long businessId = getBusinessIdFromContext();
 
-        if (!businessGuard.isOwnerOrManager() && !currentUser.getId().equals(barberId)) {
+        if (!businessGuard.isOwnerOrManager() && !userId.equals(barberId)) {
             throw new SecurityException("Unauthorized to update this schedule.");
         }
 
