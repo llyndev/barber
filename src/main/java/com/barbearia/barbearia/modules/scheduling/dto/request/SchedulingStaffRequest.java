@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public record SchedulingRequest(
+public record SchedulingStaffRequest(
 
         @NotNull(message = "The service(s) must be informed.")
         List<Long> barberServiceIds,
@@ -14,6 +14,11 @@ public record SchedulingRequest(
         Long barberId,
 
         @NotNull(message = "The date and time must be informed.")
-        LocalDateTime dateTime
+        LocalDateTime dateTime,
 
-) {}
+        Long clientId,
+        String clientName,
+        Boolean force
+
+) {
+}

@@ -106,15 +106,13 @@ public class SchedulingController {
     }
 
     @PostMapping
-    public ResponseEntity<SchedulingResponse> newScheduling(@AuthenticationPrincipal UserDetailsImpl userDetails,
-            @Valid @RequestBody SchedulingRequest schedulingRequest) {
+    public ResponseEntity<SchedulingResponse> createScheduling(
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestBody @Valid SchedulingRequest schedulingRequest) {
 
-        Long clientId = userDetails.id();
+        SchedulingResponse newScheduling = schedulingService.createScheduling(userDetails.id(), schedulingRequest);
 
-        Scheduling newScheduling = schedulingService.createScheduling(clientId, schedulingRequest);
-
-        SchedulingResponse schedulingResponse = schedulingMapper.toResponse(newScheduling);
-        return ResponseEntity.status(HttpStatus.CREATED).body(schedulingResponse);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newScheduling);
     }
 
     @DeleteMapping("/{id}")
