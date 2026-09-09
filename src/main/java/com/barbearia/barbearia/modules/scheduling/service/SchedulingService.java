@@ -35,6 +35,7 @@ import com.barbearia.barbearia.modules.googlecalender.service.GoogleCalenderServ
 import com.barbearia.barbearia.tenant.BusinessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Service;
@@ -114,18 +115,15 @@ public class SchedulingService {
     }
 
     @Transactional
-    public Scheduling createScheduling(Long authenticatedUserId, SchedulingRequest request) {
-        log.info("Creating scheduling. Authenticated User: {}, Request: {}", authenticatedUserId, request);
-
+    public SchedulingResponse createScheduling(Long authenticatedUserId, SchedulingRequest request) {
         Long businessId = BusinessContext.requireBusinessId();
+
         Business business = businessRepository.getReferenceById(businessId);
 
         AppUser clientUser = userRepository.findById(authenticatedUserId).orElseThrow(
                 () -> new ResourceNotFoundException("User not found."));
 
-        AppUser barber = userRepository.getReferenceById(request.barberId());
-
-        boolean isBarberInThisBusiness = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(barber.getId(), businessId, BusinessRole.BARBER);
+        boolean isBarberInThisBusiness = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(request.barberId(), businessId, BusinessRole.BARBER);
 
         if (!isBarberInThisBusiness) {
             throw new ResourceNotFoundException("Invalid barber");
@@ -143,22 +141,32 @@ public class SchedulingService {
 
         LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
 
+        AppUser barber = userRepository.findByIdForUpdate(request.barberId()).orElseThrow(
+                ()-> new ResourceNotFoundException("Invalid Barber"));
+
+        ensureAvailableOrThrow(barber.getId(), validServices, start);
+
         Scheduling sched = new Scheduling();
         sched.setUser(clientUser);
-        sched.setClientName(clientUser.getName());
         sched.setBarber(barber);
-        sched.setBarberService(validServices);
+        sched.setBarberService(new ArrayList<>(validServices));
         sched.setDateTime(start);
         sched.setStates(AppointmentStatus.SCHEDULED);
         sched.setBusiness(business);
 
-        Scheduling saved = schedulingRepository.save(sched);
-        log.info("Agendamento criado com sucesso ID: {}", saved.getId());
+        Scheduling saved;
+
+        try {
+            saved = schedulingRepository.saveAndFlush(sched);
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictingScheduleException("Hórario conflitante.");
+        }
+
+        SchedulingResponse response = schedulingMapper.toResponse(saved);
 
         googleCalenderService.syncSchedulingCreated(saved);
 
-        return saved;
-
+        return response;
     }
 
     public Scheduling createStaffScheduling(Long userId, SchedulingRequest request) {
@@ -189,7 +197,7 @@ public class SchedulingService {
     @Transactional
     public void cancelClient(Long schedulingId, Long clientId, @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
 
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId)
                 .orElseThrow( () -> new ResourceNotFoundException("Agendamento não encontrado."));
@@ -216,7 +224,7 @@ public class SchedulingService {
     @Transactional
     public void cancelByBusinessMember(Long schedulingId, Long userId, String reason, @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
 
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Agendamento não encontrado")
@@ -242,7 +250,7 @@ public class SchedulingService {
     }
 
     public Scheduling endService(Long schedulingId, EndSchedulingRequest endSchedulingRequest, Long barberId) {
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
 
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Agendamento não encontrado")
@@ -255,7 +263,7 @@ public class SchedulingService {
         if (!isManagerOrOwner && !isAssignedBarber) {
             throw new SecurityException("Não autorizado");
         }
-        
+
         if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
             throw new InvalidRequestException("Requisição inválida");
         }
@@ -275,6 +283,7 @@ public class SchedulingService {
 
         if (endSchedulingRequest.productsUsed() != null && !endSchedulingRequest.productsUsed().isEmpty()) {
             Business business = getBusinessEntityFromContext();
+
             AppUser user = userRepository.findById(barberId)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuário não encontrado"));
             List<SchedulingProduct> schedulingProducts = new ArrayList<>();
@@ -291,13 +300,13 @@ public class SchedulingService {
 
                 Product product = productRepository.findById(productUsage.productId())
                     .orElseThrow(() -> new ResourceNotFoundException("Produto não encontrado"));
-                
+
                 SchedulingProduct schedulingProduct = SchedulingProduct.builder()
                     .scheduling(scheduling)
                     .product(product)
                     .quantity(productUsage.quantity())
                     .build();
-                
+
                 schedulingProducts.add(schedulingProduct);
             }
 
@@ -326,7 +335,7 @@ public class SchedulingService {
     @Transactional
     public Scheduling addService(Long schedulingId, List<Long> newServiceIds) {
 
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
 
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Agendamento não encontrado")
@@ -361,7 +370,7 @@ public class SchedulingService {
 
     public List<LocalTime> getAvailableSlots(LocalDate date, List<Long> barberServiceIds, Long barberId) {
 
-        Long businessId = getBusinessIdFromContext();
+        Long businessId = BusinessContext.requireBusinessId();
 
         if (barberServiceIds == null || barberServiceIds.isEmpty()) {
             return List.of();
@@ -514,7 +523,7 @@ public class SchedulingService {
     public void startAppointment(Long schedulingId) {
         Scheduling scheduling = schedulingRepository.findById(schedulingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Scheduling not found"));
-        
+
         scheduling.setStates(AppointmentStatus.IN_PROGRESS);
         schedulingRepository.save(scheduling);
 
