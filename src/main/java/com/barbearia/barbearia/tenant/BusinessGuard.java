@@ -6,6 +6,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class BusinessGuard {
 
+    public void requireOwnerOrMangerOrBarber() {
+        BusinessRole role = BusinessContext.requireRole();
+        if (role != BusinessRole.OWNER && role != BusinessRole.MANAGER && role != BusinessRole.BARBER) {
+            throw new SecurityException("Unauthorized.");
+        }
+    }
+
     public void requireOwnerOrManager() {
         BusinessRole role = BusinessContext.requireRole();
         if (role != BusinessRole.OWNER && role != BusinessRole.MANAGER) {
