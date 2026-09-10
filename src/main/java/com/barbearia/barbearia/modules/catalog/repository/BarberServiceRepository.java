@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface BarberServiceRepository extends JpaRepository<BarberService, Long> {
 
@@ -15,4 +16,6 @@ public interface BarberServiceRepository extends JpaRepository<BarberService, Lo
     List<BarberService> findAllByBusinessId(Long businessId);
 
     Optional<BarberService> findByIdAndBusinessId(Long id, Long businessId);
+
+    List<BarberService> findAllByIdInAndBusinessId(Set<Long> id, Long businessId);
 }

@@ -3,8 +3,8 @@ package com.barbearia.barbearia.modules.inventory.service;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.barbearia.barbearia.modules.inventory.dto.request.StockMovementCommand;
 import com.barbearia.barbearia.modules.inventory.dto.response.PublicProdutResponse;
-import com.barbearia.barbearia.security.UserDetailsImpl;
 import org.springframework.stereotype.Service;
 
 import com.barbearia.barbearia.exception.InvalidRequestException;
@@ -71,7 +71,7 @@ public class InventoryService {
     }
 
     @Transactional
-    public BigDecimal registerMovement(String slug, Long productId, StockMovementType type, Integer quantity, String reason, AppUser user) {
+    public void registerMovement(Long businessId, StockMovementType type, List<StockMovementCommand> commands, AppUser performedBy) {
         Business business = businessRepository.findBySlug(slug)
             .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 

@@ -1,5 +1,6 @@
 package com.barbearia.barbearia.modules.orders.model;
 
+import com.barbearia.barbearia.modules.scheduling.model.PaymentMethod;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -35,6 +36,9 @@ public class Order {
     @Column(name = "professional_id")
     private Long professionalId;
 
+    @Column(name = "payment_method")
+    private PaymentMethod paymentMethod;
+
     @Column(name = "scheduling_id")
     private Long schedulingId;
 
@@ -56,6 +60,9 @@ public class Order {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Column(name = "payment_at")
+    private LocalDateTime paymentAt;
 
     public void addItem(OrderItem item) {
         items.add(item);

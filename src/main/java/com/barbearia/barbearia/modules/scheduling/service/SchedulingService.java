@@ -1,7 +1,6 @@
 package com.barbearia.barbearia.modules.scheduling.service;
 
 import com.barbearia.barbearia.exception.ConflictException;
-import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import com.barbearia.barbearia.modules.scheduling.dto.request.*;
 import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.exception.ConflictingScheduleException;
@@ -14,13 +13,11 @@ import com.barbearia.barbearia.modules.business.model.Business;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
 import com.barbearia.barbearia.modules.scheduling.model.AppointmentStatus;
-import com.barbearia.barbearia.modules.account.service.UserService;
 import com.barbearia.barbearia.modules.catalog.repository.BarberServiceRepository;
 import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.scheduling.repository.SchedulingRepository;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
-import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.modules.availability.service.OpeningHoursService;
 import com.barbearia.barbearia.tenant.BusinessContext;
 import com.barbearia.barbearia.modules.inventory.service.InventoryService;
@@ -37,7 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -47,6 +44,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -277,23 +275,17 @@ public class SchedulingService {
     public Scheduling endService(Long schedulingId, EndSchedulingRequest endSchedulingRequest, Long barberId) {
         Long businessId = BusinessContext.requireBusinessId();
 
-        AppUser user = userRepository.findById(barberId).orElseThrow(
-                () -> new ResourceNotFoundException("User not found."));
-
-        Business business = businessRepository.findById(businessId).orElseThrow(
-                () -> new ResourceNotFoundException("Barbershop not found."));
-
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
                 () -> new ResourceNotFoundException("Scheduling not found."));
 
         boolean isManagerOrOwner = businessGuard.isOwnerOrManager();
-        boolean isAssignedBarber = scheduling.getBarber().getId().equals(barberId);
+        boolean isAssignedBarber = scheduling.getBarber() != null && scheduling.getBarber().getId().equals(barberId);
 
         if (!isManagerOrOwner && !isAssignedBarber) {
-            throw new SecurityException("Unauthorized.");
+            throw new AccessDeniedException("Unauthorized.");
         }
 
-        // Verifica se o agendamneto que esta sendo cancelado esta com o STATUS de SCHEDULED (AGENDADO)
+        // Verifica se o agendamneto que esta sendo finalizado esta com o STATUS de SCHEDULED (AGENDADO)
         if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
             throw new InvalidRequestException("Invalid request.");
         }
@@ -551,6 +543,58 @@ public class SchedulingService {
                 throw new ConflictingScheduleException("Horário conflitante");
             }
         }
+    }
+
+    // Vincula serviços adicionais.
+    private void applyAdditionalServices(Scheduling scheduling, List<Long> servicesIds, Long businessId) {
+
+        if (servicesIds == null || servicesIds.isEmpty()) return;
+
+        Set<Long> uniqueIds = new LinkedHashSet<>(servicesIds);
+
+        List<BarberService> services = barberServiceRepository.findAllByIdInAndBusinessId(uniqueIds, businessId);
+
+        if (services.size() != uniqueIds.size()) {
+            throw new ResourceNotFoundException("One or more services not found.");
+        }
+
+        Set<Long> alreadyLinked = scheduling.getBarberService().stream()
+                .map(BarberService::getId)
+                .collect(Collectors.toSet());
+
+        services.stream()
+                .filter(service -> !alreadyLinked.contains(service.getId()))
+                .forEach(scheduling.getBarberService()::add);
+    }
+
+    // Registra produtos usados e dá baixa no estoque.
+    private void applyProductUsage(Scheduling scheduling, List<ProductUsageRequest> usages, Long businessId, Long currentUserId) {
+        if (usages == null || usages.isEmpty()) return;
+
+        // Normaliza o payload antes de ir para o banco
+        Map<Long, Integer> quantityByProductId = new LinkedHashMap<>();
+
+        for (ProductUsageRequest usage : usages) {
+            if (usage.quantity() == null || usage.quantity() <= 0) {
+                throw new InvalidRequestException("Invalid quantity for this product " + usage.productId());
+            }
+            quantityByProductId.merge(usage.productId(), usage.quantity(), Integer::sum);
+        }
+
+        List<Product> products = productRepository.findAllByIdInAndBusinessId(quantityByProductId.keySet(), businessId);
+
+        Map<Long, Product> productById = products.stream().collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        if (productById.size() != quantityByProductId.size()) {
+            Set<Long> notFound = new HashSet<>(quantityByProductId.keySet());
+            notFound.removeAll(productById.keySet());
+            throw new ResourceNotFoundException("Products not found: " + notFound);
+        }
+
+        AppUser performedBy = userRepository.getReferenceById(currentUserId);
+
+        List<SchedulingProduct> lines = new ArrayList<>(quantityByProductId.size());
+        List<StockMovementCommand>
     }
 
     @Transactional

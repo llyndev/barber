@@ -15,4 +15,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findBySchedulingId(Long schedulingId);
 
     List<Order> findByBusinessIdOrderByCreatedAtDesc(Long businessId);
+
+    Optional<Order> findByIdAndBusinessId(Long orderId, Long businessId);
+
+    boolean existsBySchedulingIdAndBusinessId(Long schedulingId, Long businessId);
 }
