@@ -71,8 +71,8 @@ public class InventoryService {
     }
 
     @Transactional
-    public void registerMovement(Long businessId, StockMovementType type, List<StockMovementCommand> commands, AppUser performedBy) {
-        Business business = businessRepository.findBySlug(slug)
+    public void registerMovement(Long businessId, StockMovementType type, List<StockMovementCommand> commands, Long currentUserId) {
+        Business business = businessRepository.findById(businessId)
             .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
 
         Product product = productRepository.findByIdAndBusinessId(productId, business.getId())

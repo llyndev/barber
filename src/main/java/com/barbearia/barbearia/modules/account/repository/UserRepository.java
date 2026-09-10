@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,6 +20,8 @@ public interface UserRepository extends JpaRepository<AppUser, Long> {
     Optional<AppUser> findByGoogleSubject(String googleSubject);
 
     List<AppUser> findAllByPlatformRole(PlatformRole platformRole);
+
+    List<AppUser> findAllByIdInAndBusinessId(Collection<Long> ids, Long businessId);
 
     boolean existsByEmail(String email);
 
