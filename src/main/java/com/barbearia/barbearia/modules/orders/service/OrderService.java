@@ -141,6 +141,52 @@ public class OrderService {
         inventoryService.registerMovement(businessId, StockMovementType.EXIT, movements, currentUserId);
     }
 
+    private List<SchedulingAdditionalValue> applyAdditionalValues(Order order, List<CheckoutRequest.AdditionalValueRequest> request, Long businessId) {
+
+        if (request == null || request.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> barberIds = request.stream()
+                .map(CheckoutRequest.AdditionalValueRequest::barberId)
+                .collect(Collectors.toSet());
+
+        Map<Long, AppUser> barberById = userRepository
+                .findAllByIdInAndBusinessId(barberIds, businessId).stream()
+                .collect(Collectors.toMap(AppUser::getId, Function.identity()));
+
+        if (barberById.size() != barberIds.size()) {
+            throw new ResourceNotFoundException("One or more barbers not found.");
+        }
+
+        List<SchedulingAdditionalValue> result = new ArrayList<>(request.size());
+
+        for (CheckoutRequest.AdditionalValueRequest val : request) {
+            if (val.value() == null || val.value().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new InvalidRequestException("Invalid additional value.");
+            }
+
+            AppUser barber = barberById.get(val.barberId());
+
+            OrderItem item = OrderItem.builder()
+                    .type(OrderItemType.ADDITIONAL)
+                    .itemId(barber.getId())
+                    .name("Valor adicional - " + barber.getName())
+                    .quantity(1)
+                    .unitPrice(val.value())
+                    .build();
+            item.calculateTotal();
+            order.addItem(item);
+
+            result.add(SchedulingAdditionalValue.builder()
+                    .barber(barber)
+                    .value(val.value())
+                    .build());
+        }
+
+        return result;
+    }
+
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
         Long businessId = getBusinessId();
@@ -257,13 +303,7 @@ public class OrderService {
             scheduling.setStates(AppointmentStatus.COMPLETED);
             scheduling.setPaymentMethod(request.paymentMethod());
 
-            if (!additionalValues.isEmpty()) {
-                if (scheduling.getAdditionalValue() == null) {
-                    scheduling.setAdditionalValue(new ArrayList<>());
-                }
-                additionalValues.forEach(av -> av.setScheduling(scheduling));
-                scheduling.getAdditionalValue().addAll(additionalValues);
-            }
+            additionalValues.forEach(scheduling::addAdditionalValue);
 
         }
 
@@ -273,20 +313,24 @@ public class OrderService {
 
         return orderMapper.toResponse(orderRepository.save(order));
     }
-    
+
+    @Transactional(readOnly = true)
     public OrderResponse getOrder(Long orderId) {
-         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
-         return orderMapper.toResponse(order);
+
+         return orderMapper.toResponse(orderRepository.findById(orderId)
+                 .orElseThrow(() -> new ResourceNotFoundException("Order not found")));
     }
 
-    public List<OrderResponse> getOrderByBusiness(String slug) {
+    public List<OrderResponse> getOrderByBusiness(Long id) {
+        Long businessId = BusinessContext.requireBusinessId();
 
-        var business = businessService.getBySlug(slug);
+        if (!businessId.equals(id)) {
+            throw new InvalidRequestException("Invalid barbershop");
+        }
 
-        return orderRepository.findByBusinessIdOrderByCreatedAtDesc(business.id())
+        return orderRepository.findByBusinessIdOrderByCreatedAtDesc(businessId)
             .stream()
-            .map(this::toResponse)
+            .map(orderMapper::toResponse)
             .toList();
     }
 }
