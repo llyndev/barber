@@ -8,6 +8,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -57,8 +58,9 @@ public class Scheduling {
     @Column(name = "reason_cancel")
     private String reasonCancel;
 
-    @Column(name = "additional_value")
-    private BigDecimal additionalValue;
+    @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<SchedulingAdditionalValue> additionalValue = new ArrayList<>();
 
     @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SchedulingAdditionalValue> additionalValues;
@@ -75,5 +77,10 @@ public class Scheduling {
     @ManyToOne
     @JoinColumn(name = "business_id")
     private Business business;
+
+    public void addAdditionalValue(SchedulingAdditionalValue value) {
+        value.setScheduling(this);
+        this.additionalValue.add(value);
+    }
 
 }
