@@ -2,12 +2,16 @@ package com.barbearia.barbearia.modules.orders.service;
 
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
+import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.business.service.BusinessService;
 import com.barbearia.barbearia.modules.catalog.model.BarberService;
 import com.barbearia.barbearia.modules.catalog.repository.BarberServiceRepository;
+import com.barbearia.barbearia.modules.inventory.dto.request.StockMovementCommand;
 import com.barbearia.barbearia.modules.inventory.model.Product;
+import com.barbearia.barbearia.modules.inventory.model.StockMovementType;
 import com.barbearia.barbearia.modules.inventory.repository.ProductRepository;
 import com.barbearia.barbearia.modules.inventory.repository.StockMovementRepository;
+import com.barbearia.barbearia.modules.inventory.service.InventoryService;
 import com.barbearia.barbearia.modules.orders.dto.request.AddOrderItemRequest;
 import com.barbearia.barbearia.modules.orders.dto.request.CheckoutRequest;
 import com.barbearia.barbearia.modules.orders.dto.request.CreateOrderRequest;
@@ -27,8 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -38,9 +43,9 @@ public class OrderService {
     private final SchedulingRepository schedulingRepository;
     private final ProductRepository productRepository;
     private final BarberServiceRepository barberServiceRepository;
-    private final StockMovementRepository stockMovementRepository;
-    private final BusinessService businessService;
     private final UserRepository userRepository;
+    private final BusinessService businessService;
+    private final InventoryService inventoryService;
     private final OrderMapper orderMapper;
 
     private Long getBusinessId() {
@@ -99,6 +104,41 @@ public class OrderService {
                 order.addItem(item);
             }
         }
+    }
+
+    private void applyStockExit(Order order, Long businessId, Long currentUserId) {
+
+        // Agrega por produto: se o mesmo produto aparece em dois itens da comanda,
+        // vira UMA baixa somada em vez de duas movimentações separadas.
+        Map<Long, Integer> quantityByProductId = order.getItems().stream()
+                .filter(item -> item.getType() == OrderItemType.PRODUCT)
+                .collect(Collectors.groupingBy(
+                        OrderItem::getItemId,
+                        LinkedHashMap::new,
+                        Collectors.summingInt(OrderItem::getQuantity)
+                ));
+
+        if (quantityByProductId.isEmpty()) return;
+
+        List<Product> products = productRepository.findAllByIdInAndBusinessId(quantityByProductId.keySet(), businessId);
+
+        Map<Long, Product> productById = products.stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        if (productById.size() != quantityByProductId.size()) {
+            Set<Long> notFound = new HashSet<>(quantityByProductId.keySet());
+            notFound.removeAll(productById.keySet());
+            throw new ResourceNotFoundException("Products not found: " + notFound);
+        }
+
+        List<StockMovementCommand> movements = quantityByProductId.entrySet().stream()
+                .map(entry -> new StockMovementCommand(
+                        productById.get(entry.getKey()),
+                        entry.getValue(),
+                        "Order Checkout #" + order.getId()))
+                .toList();
+
+        inventoryService.registerMovement(businessId, StockMovementType.EXIT, movements, currentUserId);
     }
 
     @Transactional
@@ -192,7 +232,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse checkout(Long orderId, CheckoutRequest request) {
+    public OrderResponse checkout(Long orderId, CheckoutRequest request, Long currentUserId) {
         Long businessId = getBusinessId();
         Order order = loadOpenOrder(orderId, businessId);
 
@@ -204,7 +244,7 @@ public class OrderService {
 
         order.recalculateTotal();
 
-        applyStockExit(order, businessId);
+        applyStockExit(order, businessId, currentUserId);
 
         if (order.getSchedulingId() != null) {
             Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(order.getSchedulingId(), businessId).orElseThrow(
