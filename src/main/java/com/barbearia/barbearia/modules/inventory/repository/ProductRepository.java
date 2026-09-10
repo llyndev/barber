@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.inventory.repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -17,5 +18,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     @Query("SELECT p FROM Product p WHERE p.business.id = :businessId AND p.quantity <= p.minQuantity AND p.active = true")
     List<Product> findLowStockProducts(@Param("businessId") Long businessId);
-    
+
+    List<Product> findAllByIdInAndBusinessId(Set<Long> productId, Long businessId);
 }
