@@ -28,4 +28,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             where p.id = :id and p.business.id = :businessId and p.quantity >= :qty
             """)
     int decreaseStock(@Param("id") Long id, @Param("businessId") Long businessId, @Param("qty") Integer qty);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            update Product p set p.quantity = p.quantity + :qty
+            where p.id = :id and p.business.id = :businessId
+            """)
+    void increaseStock(@Param("id") Long id, @Param("businessId") Long businessId, @Param("qty") Integer qty);
 }
