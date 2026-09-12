@@ -161,4 +161,11 @@ public class GlobalExceptionHandler {
         Map<String, String> body = Map.of("error", "Conflict exception.");
         return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<Map<String, String>> handleInsufficientStock(InsufficientStockException exception) {
+        log.warn("Insufficient stock exception: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Conflict exception.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
 }
