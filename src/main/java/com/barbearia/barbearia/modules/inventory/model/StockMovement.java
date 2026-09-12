@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.inventory.model;
 
 import java.time.LocalDateTime;
 
+import com.barbearia.barbearia.modules.account.model.AppUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -50,6 +51,6 @@ public class StockMovement {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    private com.barbearia.barbearia.modules.account.model.AppUser user;
+    private AppUser user;
 
 }

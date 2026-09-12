@@ -43,8 +43,8 @@ public class Scheduling {
             name = "scheduling_services",
             joinColumns = @JoinColumn(name = "scheduling_id"),
             inverseJoinColumns = @JoinColumn(name = "barber_service_id"))
-    private List<BarberService> barberService;
-
+    @Builder.Default
+    private List<BarberService> barberService = new ArrayList<>();
     @Column(name = "scheduling_date_time")
     private LocalDateTime dateTime;
 
@@ -62,9 +62,6 @@ public class Scheduling {
     @Builder.Default
     private List<SchedulingAdditionalValue> additionalValue = new ArrayList<>();
 
-    @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SchedulingAdditionalValue> additionalValues;
-
     @Column(name = "observation_scheduling")
     private String observation;
 
@@ -81,6 +78,17 @@ public class Scheduling {
     public void addAdditionalValue(SchedulingAdditionalValue value) {
         value.setScheduling(this);
         this.additionalValue.add(value);
+    }
+
+    public BigDecimal getTotalAdditionalValue() {
+        return additionalValue.stream()
+                .map(SchedulingAdditionalValue::getValue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public void addProductUsed(SchedulingProduct request) {
+        request.setScheduling(this);
+        this.productsUsed.add(request);
     }
 
 }

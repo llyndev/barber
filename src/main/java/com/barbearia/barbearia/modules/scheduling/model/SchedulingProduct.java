@@ -4,6 +4,8 @@ import com.barbearia.barbearia.modules.inventory.model.Product;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Getter
 @Setter
@@ -26,4 +28,13 @@ public class SchedulingProduct {
     private Product product;
 
     private Integer quantity;
+
+    // Preço do produto no momento do atendimento
+    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal unitPrice;
+
+    public BigDecimal getLineTotal() {
+        return unitPrice.multiply(BigDecimal.valueOf(quantity));
+    }
+
 }
