@@ -1,8 +1,11 @@
 package com.barbearia.barbearia.modules.inventory.service;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
+import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.modules.inventory.dto.request.StockMovementCommand;
 import com.barbearia.barbearia.modules.inventory.dto.response.PublicProdutResponse;
 import org.springframework.stereotype.Service;
@@ -25,8 +28,9 @@ import com.barbearia.barbearia.modules.business.service.BusinessService;
 import com.barbearia.barbearia.modules.inventory.dto.response.StockMovementResponse;
 import com.barbearia.barbearia.modules.inventory.mapper.StockMovementMapper;
 
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +42,7 @@ public class InventoryService {
     private final ProductMapper productMapper;
     private final BusinessService businessService;
     private final StockMovementMapper stockMovementMapper;
+    private final UserRepository userRepository;
 
     public List<ProductResponse> listProducts(String slug, AppUser user) {
         Business business = businessRepository.findBySlug(slug)
@@ -70,46 +75,58 @@ public class InventoryService {
         return productMapper.toResponse(productRepository.save(product));
     }
 
-    @Transactional
-    public void registerMovement(Long businessId, StockMovementType type, List<StockMovementCommand> commands, Long currentUserId) {
-        Business business = businessRepository.findById(businessId)
-            .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void registerMovements(Long businessId, StockMovementType type, List<StockMovementCommand> commands, Long perfomedByUserId) {
 
-        Product product = productRepository.findByIdAndBusinessId(productId, business.getId())
-            .orElseThrow(() -> new ResourceNotFoundException("Product not found for this business"));
+        if (commands == null || commands.isEmpty()) return;
 
-        if (quantity <= 0) {
-            throw new InvalidRequestException("Quantity must be greater than zero");
-        }
+        AppUser performedBy = userRepository.getReferenceById(perfomedByUserId);
 
-        if (type == StockMovementType.EXIT) {
-            if (product.getQuantity() < quantity) {
-                throw new InvalidRequestException("Insufficient stock");
+        List<StockMovementCommand> ordered = commands.stream()
+                .sorted(Comparator.comparing(command -> command.product().getId()))
+                .toList();
+
+        List<StockMovement> movements = new ArrayList<>(ordered.size());
+        LocalDateTime now = LocalDateTime.now();
+
+        for (StockMovementCommand command : ordered) {
+            Product product = command.product();
+            Integer quantity = command.quantity();
+
+            if (quantity == null || quantity <= 0) {
+                throw new InvalidRequestException(
+                        "Quantidade inválida para o produto " + product.getName()
+                );
             }
+
+            switch (type) {
+                case EXIT -> {
+                    int update = productRepository.decreaseStock(product.getId(), businessId, quantity);
+
+                    if (update == 0) {
+                        throw new InsufficientStockException(
+                                "Insufficient stock for: " + product.getName()
+                        );
+                    }
+                }
+                case ENTRY -> productRepository.increaseStock(product.getId(), businessId, quantity);
+
+                default -> throw new InvalidRequestException("Unsupported movement type: " + type);
+            }
+
+            movements.add(StockMovement.builder()
+                    .product(product)
+                    .type(type)
+                    .quantity(quantity)
+                    .reason(command.reason())
+                    .date(now)
+                    .user(performedBy)
+                    .build());
         }
 
-        if (type == StockMovementType.ADJUSTMENT) {
-            product.setQuantity(quantity);
-        }
-
-        if (type == StockMovementType.ENTRY) {
-            product.setQuantity(product.getQuantity() + quantity);
-        }
-
-        productRepository.save(product);
-
-        StockMovement movement = StockMovement.builder()
-                .product(product)
-                .type(type)
-                .quantity(quantity)
-                .reason(reason)
-                .user(user)
-                .build();
-        
-        stockMovementRepository.save(movement);
-
-        return product.getPrice().multiply(BigDecimal.valueOf(quantity));
+        stockMovementRepository.saveAll(movements);
     }
+
 
     public List<StockMovementResponse> listMovements(String slug, AppUser user) {
         Business business = businessRepository.findBySlug(slug)
