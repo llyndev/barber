@@ -1,6 +1,7 @@
 package com.barbearia.barbearia.modules.scheduling.service;
 
 import com.barbearia.barbearia.exception.ConflictException;
+import com.barbearia.barbearia.modules.inventory.dto.request.StockMovementCommand;
 import com.barbearia.barbearia.modules.scheduling.dto.request.*;
 import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.exception.ConflictingScheduleException;
@@ -315,7 +316,7 @@ public class SchedulingService {
 
             for (ProductUsageRequest productUsage : endSchedulingRequest.productsUsed()) {
                 inventoryService.registerMovement(
-                    business.getSlug(),
+                    businessId,
                     productUsage.productId(),
                     StockMovementType.EXIT,
                     productUsage.quantity(),
@@ -594,7 +595,29 @@ public class SchedulingService {
         AppUser performedBy = userRepository.getReferenceById(currentUserId);
 
         List<SchedulingProduct> lines = new ArrayList<>(quantityByProductId.size());
-        List<StockMovementCommand>
+        List<StockMovementCommand> movements = new ArrayList<>(quantityByProductId.size());
+
+        for(Map.Entry<Long, Integer> entry : quantityByProductId.entrySet()) {
+            Product product = productById.get(entry.getKey());
+            Integer quantity = entry.getValue();
+
+            lines.add(SchedulingProduct.builder()
+                    .scheduling(scheduling)
+                    .product(product)
+                    .quantity(quantity)
+                    .build());
+
+            movements.add(new StockMovementCommand(
+                    product, quantity, "Usado no agendamento #" + scheduling.getId()
+            ));
+        }
+
+        inventoryService.registerMovement(businessId, StockMovementType.EXIT, movements, performedBy);
+
+        if(scheduling.getProductsUsed() == null) {
+            scheduling.setProductsUsed(new ArrayList<>());
+        }
+        scheduling.getProductsUsed().addAll(lines);
     }
 
     @Transactional
