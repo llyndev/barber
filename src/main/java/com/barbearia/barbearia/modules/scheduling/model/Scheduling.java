@@ -69,6 +69,7 @@ public class Scheduling {
     private PaymentMethod paymentMethod;
 
     @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<SchedulingProduct> productsUsed;
 
     @ManyToOne
