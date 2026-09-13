@@ -1,44 +1,51 @@
 package com.barbearia.barbearia.tenant;
 
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 @Component
 public class BusinessGuard {
 
     public void requireOwnerOrMangerOrBarber() {
-        BusinessRole role = BusinessContext.requireRole();
-        if (role != BusinessRole.OWNER && role != BusinessRole.MANAGER && role != BusinessRole.BARBER) {
-            throw new SecurityException("Unauthorized.");
+        if (!isOwnerOrManagerOrBarber()) {
+            throw new AccessDeniedException("Acesso negado.");
         }
     }
 
     public void requireOwnerOrManager() {
-        BusinessRole role = BusinessContext.requireRole();
-        if (role != BusinessRole.OWNER && role != BusinessRole.MANAGER) {
-            throw new SecurityException("Unauthorized.");
+        if (!isOwnerOrManager()) {
+            throw new AccessDeniedException("Acesso negado.");
         }
     }
 
     public void requireOwner() {
-        BusinessRole role = BusinessContext.requireRole();
-        if (role != BusinessRole.OWNER) {
-            throw new SecurityException("Unauthorized.");
+        if (!isOwner()) {
+            throw new AccessDeniedException("Acesso negado.");
         }
     }
 
     public boolean isOwnerOrManager() {
-        BusinessRole role = BusinessContext.requireRole();
-        return role == BusinessRole.OWNER || role == BusinessRole.MANAGER;
+        return BusinessContext.getRole()
+                .filter(r -> r == BusinessRole.OWNER || r == BusinessRole.MANAGER)
+                .isPresent();
     }
 
     public boolean isOwnerOrManagerOrBarber() {
-        BusinessRole role = BusinessContext.requireRole();
-        return role == BusinessRole.OWNER || role == BusinessRole.MANAGER || role == BusinessRole.BARBER;
+        return BusinessContext.getRole()
+                .filter(r -> r == BusinessRole.OWNER || r == BusinessRole.MANAGER || r == BusinessRole.BARBER)
+                .isPresent();
     }
 
     public boolean isBarber() {
-        BusinessRole role = BusinessContext.requireRole();
-        return role == BusinessRole.BARBER;
+        return BusinessContext.getRole()
+                .filter(r -> r == BusinessRole.BARBER)
+                .isPresent();
+    }
+
+    public boolean isOwner() {
+        return BusinessContext.getRole()
+                .filter(r -> r == BusinessRole.OWNER)
+                .isPresent();
     }
 }
