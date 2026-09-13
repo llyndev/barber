@@ -7,6 +7,7 @@ import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingRespons
 import com.barbearia.barbearia.exception.ConflictingScheduleException;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
+import com.barbearia.barbearia.modules.scheduling.event.SchedulingCompletedEvent;
 import com.barbearia.barbearia.modules.scheduling.mapper.SchedulingMapper;
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.catalog.model.BarberService;
@@ -16,6 +17,7 @@ import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
 import com.barbearia.barbearia.modules.scheduling.model.AppointmentStatus;
 import com.barbearia.barbearia.modules.catalog.repository.BarberServiceRepository;
 import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
+import com.barbearia.barbearia.modules.scheduling.model.SchedulingAdditionalValue;
 import com.barbearia.barbearia.modules.scheduling.repository.SchedulingRepository;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
@@ -33,7 +35,10 @@ import com.barbearia.barbearia.modules.googlecalender.service.GoogleCalenderServ
 import com.barbearia.barbearia.tenant.BusinessGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -68,16 +73,24 @@ public class SchedulingService {
     private final GoogleCalenderService googleCalenderService;
     private final SchedulingMapper schedulingMapper;
     private final BusinessGuard businessGuard;
+    private final ApplicationEventPublisher eventPublisher;
 
-    // Listar todos os agendamentos para as roles owner ou manager
-    public List<SchedulingResponse> listAll() {
+    /**
+     * Lista paginada de todos os agendamentos da barbearia atual.
+     */
+    public Page<SchedulingResponse> listAll(Pageable pageable) {
         businessGuard.requireOwnerOrManager();
 
         Long businessId = BusinessContext.requireBusinessId();
-        List<Scheduling> scheduling = schedulingRepository.findAllByBusinessId(businessId);
-        return schedulingMapper.toResponseList(scheduling);
+
+        return schedulingRepository
+                .findAllByBusinessId(businessId, pageable)
+                .map(schedulingMapper::toResponse);
     }
 
+    /**
+     * Agendamentos num intervalo de datas (usado pela agenda semanal/mensal).
+     */
     public List<SchedulingResponse> getByDateRange(LocalDateTime start, LocalDateTime end) {
         Long businessId = BusinessContext.requireBusinessId();
 
@@ -85,6 +98,9 @@ public class SchedulingService {
         return schedulingMapper.toResponseList(scheduling);
     }
 
+    /**
+     * Um agendamento específico pelo id.
+     */
     public SchedulingResponse getById(Long id) {
         Long businessId = BusinessContext.requireBusinessId();
 
@@ -93,11 +109,17 @@ public class SchedulingService {
         return schedulingMapper.toResponse(scheduling);
     }
 
+    /**
+     * Agendamento do client autenticado.
+     */
     public List<SchedulingResponse> getByClientId(Long id) {
         List<Scheduling> scheduling = schedulingRepository.findByUser_Id(id);
         return schedulingMapper.toResponseList(scheduling);
     }
 
+    /**
+     * Agenda do barbeiro autenticado dentro da barbearia atual.
+     */
     public List<SchedulingResponse> getByBarberId(Long id) {
         Long businessId = BusinessContext.requireBusinessId();
 
@@ -105,12 +127,18 @@ public class SchedulingService {
         return schedulingMapper.toResponseList(scheduling);
     }
 
+    /**
+     * Agendamentos em um único dia.
+     */
     public List<SchedulingResponse> getByDateTime(LocalDateTime start, LocalDateTime end) {
         Long businessId = BusinessContext.requireBusinessId();
         List<Scheduling> scheduling = schedulingRepository.findByDateTimeBetweenAndBusinessId(start, end, businessId);
         return schedulingMapper.toResponseList(scheduling);
     }
 
+    /**
+     * Criar um agendamento para si mesmo.
+     */
     @Transactional
     public SchedulingResponse createScheduling(Long authenticatedUserId, SchedulingRequest request) {
         Long businessId = BusinessContext.requireBusinessId();
@@ -170,7 +198,14 @@ public class SchedulingService {
         return response;
     }
 
+    /**
+     * Recepção/barbeiro agendando para um cliente que não tem conta
+     * (nome e telefone digitados na hora).
+     */
+    @Transactional
     public SchedulingResponse createStaffScheduling(SchedulingStaffRequest request) {
+        businessGuard.requireOwnerOrMangerOrBarber();
+
         Long businessId = BusinessContext.requireBusinessId();
         Business business = businessRepository.getReferenceById(businessId);
 
@@ -219,6 +254,9 @@ public class SchedulingService {
         return response;
     }
 
+    /**
+     * Cliente cancelando o próprio agendamento.
+     */
     @Transactional
     public void cancelClient(Long clientId, Long schedulingId) {
         Long businessId = BusinessContext.requireBusinessId();
@@ -247,6 +285,9 @@ public class SchedulingService {
         }
     }
 
+    /**
+     * Barbeiro, gerente ou dono cancelando, com motivo registrado.
+     */
     @Transactional
     public void cancelByBusinessMember(Long schedulingId, Long barberId, ReasonRequest reason) {
         Long businessId = BusinessContext.requireBusinessId();
@@ -272,95 +313,51 @@ public class SchedulingService {
         }
     }
 
-    @Transactional // TODO:
-    public Scheduling endService(Long schedulingId, EndSchedulingRequest endSchedulingRequest, Long barberId) {
+    /**
+     * Finaliza o atendimento: forma de pagamento, serviços extras, produtos usados
+     * (com baixa de estoque) e valores adicionais por barbeiro.
+     */
+    @Transactional
+    public SchedulingResponse endService(Long schedulingId, EndSchedulingRequest request, Long currentUserId) {
         Long businessId = BusinessContext.requireBusinessId();
 
         Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId).orElseThrow(
-                () -> new ResourceNotFoundException("Scheduling not found."));
+                () -> new ResourceNotFoundException("Agendamento não encontrado."));
 
         boolean isManagerOrOwner = businessGuard.isOwnerOrManager();
-        boolean isAssignedBarber = scheduling.getBarber() != null && scheduling.getBarber().getId().equals(barberId);
+        boolean isAssignedBarber = scheduling.getBarber() != null && scheduling.getBarber().getId().equals(currentUserId);
 
         if (!isManagerOrOwner && !isAssignedBarber) {
-            throw new AccessDeniedException("Unauthorized.");
+            throw new AccessDeniedException("Não autorizado.");
         }
 
         // Verifica se o agendamneto que esta sendo finalizado esta com o STATUS de SCHEDULED (AGENDADO)
         if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
-            throw new InvalidRequestException("Invalid request.");
+            throw new InvalidRequestException("Requisição inválida.");
         }
 
-        // Veficia se tem algum serviço adicional no agendamento
-        if (endSchedulingRequest.servicesIds() != null && !endSchedulingRequest.servicesIds().isEmpty()) {
-            List<BarberService> newServices = barberServiceRepository.findAllById(endSchedulingRequest.servicesIds());
-            List<BarberService> validServices = newServices.stream()
-                    .filter(service -> service.getBusiness().getId().equals(businessId))
-                    .toList();
+        applyAdditionalServices(scheduling, request.servicesIds(), businessId);
+        applyProductUsage(scheduling, request.productsUsed(), businessId, currentUserId);
 
-            if (validServices.size() != endSchedulingRequest.servicesIds().size()) {
-                throw new ResourceNotFoundException("One or more services not found.");
-            }
-
-            scheduling.getBarberService().addAll(validServices);
-        }
-
-        if (endSchedulingRequest.productsUsed() != null && !endSchedulingRequest.productsUsed().isEmpty()) {
-
-            Set<Long> productsIds = endSchedulingRequest.productsUsed()
-                    .stream()
-                    .map(ProductUsageRequest::productId)
-                    .collect(Collectors.toSet());
-
-            List<Product> schedulingProducts = productRepository.findAllById(productsIds);
-
-            for (ProductUsageRequest productUsage : endSchedulingRequest.productsUsed()) {
-                inventoryService.registerMovement(
-                    businessId,
-                    productUsage.productId(),
-                    StockMovementType.EXIT,
-                    productUsage.quantity(),
-                    "Usado no agendamento #" + schedulingId,
-                    user
-                );
-
-                // TODO: X
-                Product product = productRepository.findById(productUsage.productId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
-
-                SchedulingProduct schedulingProduct = SchedulingProduct.builder()
-                    .scheduling(scheduling)
-                    .product(product)
-                    .quantity(productUsage.quantity())
-                    .build();
-
-                schedulingProducts.add(schedulingProduct);
-            }
-
-            if (scheduling.getProductsUsed() == null) {
-                scheduling.setProductsUsed(new ArrayList<>());
-            }
-            scheduling.getProductsUsed().addAll(schedulingProducts);
-        }
+        applyAdditionalValues(scheduling, request.additionalValue(), businessId);
 
         scheduling.setStates(AppointmentStatus.COMPLETED);
-        scheduling.setObservation(endSchedulingRequest.observation());
-        scheduling.setAdditionalValue(endSchedulingRequest.additionalValue());
-        scheduling.setPaymentMethod(endSchedulingRequest.paymentMethod());
+        scheduling.setObservation(request.observation());
+        scheduling.setPaymentMethod(request.paymentMethod());
 
         Scheduling saved = schedulingRepository.save(scheduling);
 
-        try {
-            googleCalenderService.syncSchedulingUpdated(saved);
-        } catch (Exception ex) {
-            log.warn("Falha ao atualizar evento no Google Calendar para scheduling {}: {}", saved.getId(), ex.getMessage());
-        }
+        eventPublisher.publishEvent(new SchedulingCompletedEvent(saved.getId(), businessId));
 
-        return saved;
+        return schedulingMapper.toResponse(saved);
     }
 
+    /**
+     * Adiciona serviços a um agendamento em andamento
+     * (quando o cliente pede um novo serviço apos já ter começado o atendimento).
+     */
     @Transactional
-    public Scheduling addService(Long schedulingId, List<Long> newServiceIds) {
+    public SchedulingResponse addService(Long schedulingId, List<Long> newServiceIds) {
 
         Long businessId = BusinessContext.requireBusinessId();
 
@@ -391,10 +388,17 @@ public class SchedulingService {
             log.warn("Falha ao atualizar evento no Google Calendar para scheduling {}: {}", saved.getId(), ex.getMessage());
         }
 
-        return saved;
+        return schedulingMapper.toResponse(saved);
 
     }
 
+    /**
+     * Retorna os horários disponíveis de um barbeiro para uma data e conjunto
+     * de serviços. É consumido pela tela pública de agendamento antes da criação
+     * da reserva.
+     * O formato da data é definido explicitamente para evitar dependência de
+     * configurações globais do Spring Boot.
+     */
     public List<LocalTime> getAvailableSlots(LocalDate date, List<Long> barberServiceIds, Long barberId) {
 
         Long businessId = BusinessContext.requireBusinessId();
@@ -546,7 +550,9 @@ public class SchedulingService {
         }
     }
 
-    // Vincula serviços adicionais.
+    /**
+     * Vincula serviços adicionais.
+     */
     private void applyAdditionalServices(Scheduling scheduling, List<Long> servicesIds, Long businessId) {
 
         if (servicesIds == null || servicesIds.isEmpty()) return;
@@ -568,16 +574,17 @@ public class SchedulingService {
                 .forEach(scheduling.getBarberService()::add);
     }
 
-    // Registra produtos usados e dá baixa no estoque.
+    /**
+     * Registra produtos usados e dá baixa no estoque.
+     */
     private void applyProductUsage(Scheduling scheduling, List<ProductUsageRequest> usages, Long businessId, Long currentUserId) {
         if (usages == null || usages.isEmpty()) return;
 
         // Normaliza o payload antes de ir para o banco
         Map<Long, Integer> quantityByProductId = new LinkedHashMap<>();
-
         for (ProductUsageRequest usage : usages) {
             if (usage.quantity() == null || usage.quantity() <= 0) {
-                throw new InvalidRequestException("Invalid quantity for this product " + usage.productId());
+                throw new InvalidRequestException("Quantidade inválida para o produto " + usage.productId());
             }
             quantityByProductId.merge(usage.productId(), usage.quantity(), Integer::sum);
         }
@@ -592,19 +599,17 @@ public class SchedulingService {
             throw new ResourceNotFoundException("Products not found: " + notFound);
         }
 
-        AppUser performedBy = userRepository.getReferenceById(currentUserId);
-
-        List<SchedulingProduct> lines = new ArrayList<>(quantityByProductId.size());
         List<StockMovementCommand> movements = new ArrayList<>(quantityByProductId.size());
 
         for(Map.Entry<Long, Integer> entry : quantityByProductId.entrySet()) {
             Product product = productById.get(entry.getKey());
             Integer quantity = entry.getValue();
 
-            lines.add(SchedulingProduct.builder()
+            scheduling.addProductUsed(SchedulingProduct.builder()
                     .scheduling(scheduling)
                     .product(product)
                     .quantity(quantity)
+                    .unitPrice(product.getPrice())
                     .build());
 
             movements.add(new StockMovementCommand(
@@ -612,22 +617,62 @@ public class SchedulingService {
             ));
         }
 
-        inventoryService.registerMovement(businessId, StockMovementType.EXIT, movements, performedBy);
-
-        if(scheduling.getProductsUsed() == null) {
-            scheduling.setProductsUsed(new ArrayList<>());
-        }
-        scheduling.getProductsUsed().addAll(lines);
+        inventoryService.registerMovements(businessId, StockMovementType.EXIT, movements, currentUserId);
     }
 
-    @Transactional
-    public void startAppointment(Long schedulingId) {
-        Scheduling scheduling = schedulingRepository.findById(schedulingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Scheduling not found"));
+    /**
+     * Converte os valores adicionais do request em entidades e substitui a coleção do agendamento.
+     */
+    private void applyAdditionalValues(Scheduling scheduling, List<AdditionalValueRequest> requests, Long businessId) {
+
+        if (requests == null || requests.isEmpty()) return;
+
+        Set<Long> barberIds = requests.stream()
+                .map(AdditionalValueRequest::barberId)
+                .collect(Collectors.toSet());
+
+        for (Long barberId :barberIds) {
+            boolean isMember = userBusinessRepository
+                    .existsByUserIdAndBusinessIdAndRole(barberId, businessId, BusinessRole.BARBER);
+
+            if (!isMember) {
+                throw new ResourceNotFoundException("Barbeiro inválido: " + barberId);
+            }
+        }
+
+        scheduling.getAdditionalValue().clear();
+
+        for (AdditionalValueRequest req : requests) {
+            SchedulingAdditionalValue value = SchedulingAdditionalValue.builder()
+                    .barber(userRepository.getReferenceById(req.barberId()))
+                    .value(req.value())
+                    .build();
+
+            scheduling.addAdditionalValue(value);
+        }
+    }
+
+    /**
+     * Inicia o atendimento e abre a comanda.
+     */
+    public void startScheduling(Long schedulingId, Long currentUserId) {
+        businessGuard.requireOwnerOrMangerOrBarber();
+
+        Long businessId = BusinessContext.requireBusinessId();
+
+        AppUser user = userRepository.findById(currentUserId).orElseThrow(
+                () -> new ResourceNotFoundException("Usuário não encontrado"));
+
+        Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(schedulingId, businessId)
+                .orElseThrow(() -> new ResourceNotFoundException("Agendamento não encontrado."));
+
+        if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
+            throw new ConflictException("Não é possível alterar o status do agendamento no estado atual");
+        }
 
         scheduling.setStates(AppointmentStatus.IN_PROGRESS);
         schedulingRepository.save(scheduling);
 
-        orderService.createOrder(new CreateOrderRequest(scheduling.getId(), null, null, null));
+        orderService.createOrder(new CreateOrderRequest(scheduling.getId(), user.getId(), user.getName(), scheduling.getBarber().getId()));
     }
 }

@@ -3,6 +3,9 @@ package com.barbearia.barbearia.modules.scheduling.repository;
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -16,8 +19,6 @@ public interface SchedulingRepository extends JpaRepository<Scheduling, Long> {
 
     Optional<Scheduling> findByIdAndBusinessId(Long id, Long businessId);
 
-    List<Scheduling> findAllByBusinessId(Long businessId);
-
     List<Scheduling> findByBarber_IdAndBusinessId(Long barberId, Long businessId);
 
     List<Scheduling> findByDateTimeBetweenAndBusinessId(LocalDateTime dateTimeAfter, LocalDateTime dateTimeBefore, Long businessId);
@@ -25,4 +26,10 @@ public interface SchedulingRepository extends JpaRepository<Scheduling, Long> {
     List<Scheduling> findByUser_Id(Long id);
 
     List<Scheduling> findByBarber_IdAndDateTimeBetween(Long barberId, LocalDateTime start, LocalDateTime end);
+
+    @EntityGraph(attributePaths = {"user", "barber", "business", "additionalValues"})
+    Optional<Scheduling> findDeatilByIdAndBusinessId(Long id, Long businessId);
+
+    @EntityGraph(attributePaths = {"user", "barber", "business"})
+    Page<Scheduling> findAllByBusinessId(Long businessId, Pageable pageable);
 }
