@@ -13,16 +13,18 @@ public class StockMovementMapper {
             return null;
         }
 
-        String userName = movement.getUser() != null ? movement.getUser().getName() : "Sistema";
+        String performedBy = movement.getPerformedBy() != null ? movement.getPerformedBy().getUser().getName() : "Sistema";
 
         return new StockMovementResponse(
             movement.getId(),
-            movement.getDate(),
+            movement.getOccurredAt(),
             movement.getProduct().getName(),
             movement.getType(),
             movement.getQuantity(),
+            movement.getPreviousQuantity(),
+            movement.getNewQuantity(),
             movement.getReason(),
-            userName
+            performedBy
         );
     }
 }

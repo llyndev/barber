@@ -6,7 +6,7 @@ public record PublicProdutResponse(
         Long id,
         String name,
         String description,
-        Integer quantity,
+        boolean available,
         BigDecimal price
 ) {
 }

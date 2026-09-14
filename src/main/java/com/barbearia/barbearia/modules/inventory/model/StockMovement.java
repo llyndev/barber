@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.inventory.model;
 
 import java.time.LocalDateTime;
 
+import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -17,11 +18,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Getter
-@Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
@@ -43,13 +42,22 @@ public class StockMovement {
     @Column(nullable = false)
     private Integer quantity;
 
+    @Column(name = "previous_quantity", nullable = false)
+    private Integer previousQuantity;
+
+    @Column(name = "new_quantity", nullable = false)
+    private Integer newQuantity;
+
     private String reason;
 
+    @Column(name = "ocurred_at", nullable = false, updatable = false)
     @Builder.Default
-    private LocalDateTime date = LocalDateTime.now();
+    private LocalDateTime occurredAt = LocalDateTime.now();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private com.barbearia.barbearia.modules.account.model.AppUser user;
+    @JoinColumn(name = "performed_by_membership_id", nullable = false)
+    private UserBusiness performedBy;
+
+
 
 }

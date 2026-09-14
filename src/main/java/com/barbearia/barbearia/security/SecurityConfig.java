@@ -53,7 +53,7 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll() // Liberar imagens
 
                         // Public Auths
-                        .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/google", "/auth/forgot-password", "reset-password").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/refresh", "/auth/google", "/auth/forgot-password", "reset-password").permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
                         

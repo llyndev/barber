@@ -4,6 +4,7 @@ import com.barbearia.barbearia.exception.ExternalServiceException;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.modules.account.dto.response.AuthResponse;
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.security.JwtUtil;
 import com.barbearia.barbearia.security.UserDetailsImpl;
@@ -75,8 +76,16 @@ public class GoogleAuthService {
 
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(new UserDetailsImpl(user));
-        return new AuthResponse(token);
+        UserDetailsImpl principal = UserDetailsImpl.from(user);
+        String accessToken = jwtUtil.generateAccessToken(principal);
+
+        return new AuthResponse(
+                accessToken,
+                jwtUtil.getAccessTtlSeconds(),
+                user.getId(),
+                user.getName(),
+                user.getPlatformRole()
+        );
     }
 
     private AppUser createGoogleUser(String email, String name) {
@@ -85,7 +94,7 @@ public class GoogleAuthService {
         user.setName((name == null || name.isBlank()) ? "Usuario Google" : name);
         user.setTelephone(DEFAULT_PHONE);
         user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-        user.setPlatformRole(AppUser.PlatformRole.CLIENT);
+        user.setPlatformRole(PlatformRole.CLIENT);
         user.setActive(true);
         return user;
     }

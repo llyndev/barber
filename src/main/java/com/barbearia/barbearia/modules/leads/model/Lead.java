@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.leads.model;
 
 import java.time.LocalDateTime;
 
+import com.barbearia.barbearia.modules.business.model.PlanType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -42,7 +43,7 @@ public class Lead {
     String telephone;
 
     @Column(name = "lead_plan", nullable = false)
-    String plan;
+    PlanType plan;
 
     private String document;
 

@@ -1,5 +1,8 @@
 package com.barbearia.barbearia.modules.account.service;
 
+import com.barbearia.barbearia.exception.ConflictException;
+import com.barbearia.barbearia.exception.InvalidRequestException;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import com.barbearia.barbearia.modules.business.dto.request.PromoteToOwnerRequest;
 import com.barbearia.barbearia.modules.business.dto.request.UpdateRoleRequest;
 import com.barbearia.barbearia.modules.account.dto.request.UserRequest;
@@ -15,6 +18,7 @@ import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.tenant.BusinessContext;
 
 import lombok.RequiredArgsConstructor;
+import org.hibernate.ResourceClosedException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,6 +35,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final UserBusinessRepository userBusinessRepository;
+    private final RefreshTokenService refreshTokenService;
 
     public List<UserResponse> findAll() {
         List<AppUser> users = userRepository.findAll();
@@ -56,19 +61,23 @@ public class UserService {
                 .orElseThrow( () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
-    public UserResponse getLoggedUser(UserDetailsImpl userDetails) {
-        AppUser loggedUser = userDetails.user();
-        return userMapper.toDTO(loggedUser);
+    @Transactional(readOnly = true)
+    public UserResponse getMe(UserDetailsImpl userDetails) {
+        if (userDetails == null) {
+            throw new InvalidRequestException("User not authenticated.");
+        }
+
+        AppUser user = userRepository.findWithBusinessById(userDetails.id())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        return userMapper.toDTOWithBusinesses(user);
     }
 
     public List<UserResponse> listBarbers() {
 
-        String businessIdStr = BusinessContext.getBusinessId();
-        if (businessIdStr == null || businessIdStr.isBlank()) {
-            return List.of();
-        }
-
-        Long businessId = Long.parseLong(businessIdStr);
+        Long businessId = BusinessContext.findBusinessId().orElseThrow(
+                () -> new ResourceNotFoundException("Business id not found")
+        );
 
         List<UserBusiness> memberships = userBusinessRepository
                 .findAllByBusinessIdAndRole(businessId, BusinessRole.BARBER);
@@ -103,8 +112,47 @@ public class UserService {
         return userMapper.toDTO(userUpdate);
     }
 
-    public void delete(Long id) {
-        userRepository.deleteById(id);
+    @Transactional
+    public void deactivate(Long id) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        if (!user.isActive()) {
+            return;
+        }
+
+        long ownedBusiness = userBusinessRepository.
+                countActiveBusinessesByUserIdAndRole(id, BusinessRole.OWNER);
+
+        if (ownedBusiness > 0) {
+            throw new ConflictException("This user owns " + ownedBusiness + " active barbershop(s). "
+                    + "Transfer ownership or deactivate the barbershops first.");
+        }
+
+        user.setActive(false);
+
+        refreshTokenService.revokeAllForUser(id);
+    }
+
+    @Transactional
+    public UserResponse activate(Long id) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceClosedException("User not found."));
+
+        user.setActive(true);
+        return userMapper.toDTO(user);
+    }
+
+    @Transactional
+    public void block(Long id, boolean blocked) {
+        AppUser user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        user.setBlocked(blocked);
+
+        if (blocked) {
+            refreshTokenService.revokeAllForUser(id);
+        }
     }
 
     public UserResponse updateRole(Long id, UpdateRoleRequest role) {
@@ -114,7 +162,7 @@ public class UserService {
 
         AppUser user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        user.setPlatformRole(AppUser.PlatformRole.valueOf(role.role()));
+        user.setPlatformRole(PlatformRole.valueOf(role.role()));
 
         AppUser updateUserRole = userRepository.save(user);
 
@@ -127,8 +175,8 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Atualiza role para BUSINESS_OWNER
-        user.setPlatformRole(AppUser.PlatformRole.BUSINESS_OWNER);
-        user.setPlantType(request.plantType().name());
+        user.setPlatformRole(PlatformRole.BUSINESS_OWNER);
+        user.setPlanType(request.planType());
         user.setBusinessCreator(true);
         
         // Se houver data de expiração, atualiza

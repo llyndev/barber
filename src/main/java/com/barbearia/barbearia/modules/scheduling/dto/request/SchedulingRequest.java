@@ -14,10 +14,6 @@ public record SchedulingRequest(
         Long barberId,
 
         @NotNull(message = "The date and time must be informed.")
-        LocalDateTime dateTime,
-
-        Long clientId,
-        String clientName,
-        Boolean force
+        LocalDateTime dateTime
 
 ) {}

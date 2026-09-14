@@ -2,7 +2,10 @@ package com.barbearia.barbearia.modules.business.repository;
 
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -10,12 +13,14 @@ import java.util.Optional;
 public interface UserBusinessRepository extends JpaRepository<UserBusiness, Long> {
 
     Optional<UserBusiness> findByUserIdAndBusinessId(Long userId, Long businessId);
+
     boolean existsByUserIdAndBusinessIdAndRole(Long userId, Long businessId, BusinessRole role);
 
     List<UserBusiness> findAllByBusinessIdAndRole(Long businessId, BusinessRole role);
 
     List<UserBusiness> findAllByBusinessId(Long businessId);
 
+    @EntityGraph(attributePaths = "business")
     List<UserBusiness> findAllByUserIdAndRole(Long userId, BusinessRole role);
 
     long countByUserIdAndRole(Long userId, BusinessRole role);
@@ -24,4 +29,21 @@ public interface UserBusinessRepository extends JpaRepository<UserBusiness, Long
 
     boolean existsByUserIdAndBusinessIdAndRoleIn(Long userId, Long businessId, List<BusinessRole> roles);
 
+    @Query("""
+            SELECT count(ub) FROM UserBusiness ub
+            WHERE ub.user.id = :userId
+            AND ub.role = :role
+            AND ub.business.active = true
+            """)
+    long countActiveBusinessesByUserIdAndRole(@Param("userId") Long userId, @Param("role") BusinessRole role);
+
+    @Query("select b.id from Business b where b.slug = :slug and b.active = true")
+    Optional<Long> findBySlug(@Param("slug") String slug);
+
+    // TODO: ADICIONAR and ub.active = true
+    @Query("""
+            select ub.role from UserBusiness ub
+            where ub.user.id = :userId and ub.business.id = :businessId
+            """)
+    Optional<BusinessRole> findRoleByUserIdAndBusinessId(@Param("userId") Long userId, @Param("businessId") Long businessId);
 }

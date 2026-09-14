@@ -3,11 +3,25 @@ package com.barbearia.barbearia.modules.business.service;
 import java.util.List;
 import java.io.IOException;
 
+import com.barbearia.barbearia.common.util.TextNormalizer;
+import com.barbearia.barbearia.exception.ConflictException;
+import com.barbearia.barbearia.exception.InvalidRequestException;
+import com.barbearia.barbearia.modules.account.dto.response.BusinessPublicResponse;
 import com.barbearia.barbearia.modules.account.model.AppUser;
-import com.barbearia.barbearia.modules.common.address.service.AddressService;
+import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.modules.account.service.FileStorageService;
-import jakarta.transaction.Transactional;
+import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
+import com.barbearia.barbearia.modules.business.model.BusinessImageType;
+import com.barbearia.barbearia.tenant.BusinessContext;
+import com.barbearia.barbearia.tenant.BusinessGuard;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.barbearia.barbearia.modules.business.dto.request.BusinessRequest;
@@ -15,10 +29,8 @@ import com.barbearia.barbearia.modules.business.dto.response.BusinessResponse;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.common.address.mapper.AddressMapper;
 import com.barbearia.barbearia.modules.business.mapper.BusinessMapper;
-import com.barbearia.barbearia.modules.common.address.model.Address;
 import com.barbearia.barbearia.modules.business.model.Business;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
-import com.barbearia.barbearia.modules.business.model.PlanType;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
@@ -27,15 +39,22 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class BusinessService {
 
     private final BusinessRepository businessRepository;
     private final BusinessMapper businessMapper;
-    private final AddressService addressService;
     private final AddressMapper addressMapper;
     private final UserBusinessRepository userBusinessRepository;
     private final FileStorageService fileStorageService;
+    private final UserRepository userRepository;
+    private final PlanPolicy planPolicy;
+    private final SlugGenerator slugGenerator;
+    private final BusinessGuard businessGuard;
+    private final TransactionTemplate transactionTemplate;
 
+    // Metodo para listar todas as barbearias
+    // METODO NÃO ESTA SENDO UTILIZADO
     public List<BusinessResponse> getAll(boolean includeInactive) {
         return businessRepository.findAll().stream()
                 .filter(business -> includeInactive || business.isActive())
@@ -43,230 +62,89 @@ public class BusinessService {
                 .toList();
     }
 
-    public List<BusinessResponse> searchBusinesses(String searchQuery, boolean includeInactive) {
+    // Metodo para buscar barbearias por nome, cidade e bairro
+    // TODO: Adicionar permissão para pegar localização do usuário e recomendar barbearias da sua cidade.
+    public Page<BusinessSummaryResponse> searchBusinesses(String searchQuery, boolean includeInactive, Pageable pageable) {
         if (searchQuery == null || searchQuery.isBlank()) {
-            return getAll(includeInactive);
+            Page<Business> page = includeInactive
+                    ? businessRepository.findAll(pageable)
+                    : businessRepository.findAllByActiveTrue(pageable);
+            return page.map(businessMapper::toSummary);
         }
 
-        String query = searchQuery.toLowerCase().trim();
+        String query = TextNormalizer.escapeLikeWildcards(searchQuery.toLowerCase().trim());
 
-        return businessRepository.findAll().stream()
-                .filter(business -> includeInactive || business.isActive())
-                .filter(business -> 
-                    business.getName().toLowerCase().contains(query) ||
-                    (business.getAddress() != null && (
-                        (business.getAddress().getLocalidade() != null && business.getAddress().getLocalidade().toLowerCase().contains(query)) ||
-                        (business.getAddress().getBairro() != null && business.getAddress().getBairro().toLowerCase().contains(query))
-                    ))
-                )
-                .map(businessMapper::toResponse)
-                .toList();
+        if (query.length() < 2) {
+            throw new InvalidRequestException("Enter at least 2 characters to search.");
+        }
+
+        return businessRepository.search(query, includeInactive, pageable)
+                .map(businessMapper::toSummary);
+    }
+
+    // Metodo que da sugestões para autocomplete no search
+    public List<BusinessSummaryResponse> suggest(String searchQuery, int limit) {
+        Pageable topResults = PageRequest.of(0, Math.min(limit, 10));
+
+        return businessRepository.search(TextNormalizer.escapeLikeWildcards(searchQuery), false, topResults)
+                .map(businessMapper::toSummary)
+                .getContent(); // extrai a List de dentro da Page
     }
 
     public BusinessResponse getById(Long id) {
         return businessRepository.findById(id)
                 .map(businessMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Barber not found"));
     }
 
-    public BusinessResponse getBySlug(String slug) {
-        return businessRepository.findBySlug(slug)
-                .map(businessMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
-    }
-
-    public Business getBusinessBySlug(String slug) {
-        return businessRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado para o slug: " + slug));
+    public BusinessPublicResponse getPublicBySlug(String slug) {
+        return businessRepository.findBySlugAndActiveTrue(slug)
+                .map(businessMapper::toPublicResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Barber not found"));
     }
 
     @Transactional
-    public BusinessResponse create(BusinessRequest request, AppUser creator) {
-        if (request == null) throw new IllegalArgumentException("Request cannot be null");
-        if (request.name() == null || request.name().isBlank()) {
-            throw new IllegalArgumentException("Business name is required");
-        }
+    public BusinessResponse create(BusinessRequest request, Long creatorId) {
+        AppUser creator = userRepository.findById(creatorId).orElseThrow(
+                () -> new ResourceNotFoundException("User not found"));
 
-        // Valida se o usuário é BUSINESS_OWNER
-        if (creator.getPlatformRole() != AppUser.PlatformRole.BUSINESS_OWNER) {
-            throw new SecurityException("Apenas usuários com role BUSINESS_OWNER podem criar barbearias. Entre em contato com o suporte para contratar um plano.");
-        }
+        planPolicy.ensureCanCreateBusiness(creator);
 
-        // Valida se o usuário tem plano ativo
-        boolean hasActivePlan = creator.getDateExpirationAccount() != null
-                && creator.getDateExpirationAccount().isAfter(java.time.LocalDate.now());
+        Business business = businessMapper.toEntity(request);
 
-        if (!hasActivePlan) {
-            throw new SecurityException("Você precisa ter um plano ativo para criar uma barbearia. Entre em contato com o suporte.");
-        }
-
-        // Valida limite de barbearias do plano
-        PlanType userPlan;
-        try {
-            userPlan = PlanType.valueOf(creator.getPlantType());
-        } catch (Exception e) {
-            throw new IllegalStateException("Usuário sem tipo de plano definido.");
-        }
-
-        long ownedBusinesses = userBusinessRepository.countByUserIdAndRole(creator.getId(), BusinessRole.OWNER);
-        if (ownedBusinesses >= userPlan.getMaxBusiness()) {
-            throw new IllegalStateException("Seu plano " + userPlan.name() + " permite apenas " + userPlan.getMaxBusiness() + " barbearia(s). Faça upgrade do plano para criar mais.");
-        }
-
-        Business business = businessMapper.toRequest(request);
+        business.setSlug(slugGenerator.generateUnique(request.slug()));
+        business.setAddress(addressMapper.toEntity(request.address()));
         business.setOwner(creator);
 
-        // gerar slug simples se não informado
-        if (business.getSlug() == null || business.getSlug().isBlank()) {
-            business.setSlug(business.getName().toLowerCase().replaceAll("[^a-z0-9]+", "-"));
+        Business saved;
+
+        try {
+
+            saved = businessRepository.save(business);
+
+            UserBusiness ownerLink = UserBusiness.builder()
+                    .user(creator)
+                    .business(saved)
+                    .role(BusinessRole.OWNER)
+                    .build();
+            userBusinessRepository.save(ownerLink);
+
+            businessRepository.flush();
+        } catch (DataIntegrityViolationException ex) {
+            throw new ConflictException("This address is already in use. Choose another name.");
         }
-
-        businessRepository.findBySlug(business.getSlug()).ifPresent(b -> {
-            throw new IllegalArgumentException("Slug in use");
-        });
-
-        // se cep informado, buscar endereço pelo AddressService e preencher número/complemento
-        if (request.cep() != null && !request.cep().isBlank()) {
-            var addrResp = addressService.getCep(request.cep());
-            if (addrResp != null) {
-                Address addr = addressMapper.toEntity(addrResp);
-                addr.setNumero(request.numero());
-                addr.setComplemento(request.complemento());
-                business.setAddress(addr);
-            }
-        }
-
-        // Define a data de expiração do plano baseada na conta do usuário
-        if (creator.getDateExpirationAccount() != null) {
-            business.setPlanExpirationDate(creator.getDateExpirationAccount().atTime(23, 59, 59));
-        }
-
-        Business saved = businessRepository.save(business);
-
-        UserBusiness ownerLink = UserBusiness.builder()
-                .user(creator)
-                .business(saved)
-                .role(BusinessRole.OWNER)
-                .build();
-        userBusinessRepository.save(ownerLink);
 
         return businessMapper.toResponse(saved);
     }
 
-    public Business validateOwnerBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalArgumentException("Business slug é obrigatório");
-        }
+    @Transactional // TODO: ARRUMAR ESSE METODO URGENTE!
+    public BusinessResponse update(BusinessRequest request) {
+        businessGuard.requireOwner();
 
-        Business business = businessRepository.findBySlug(businessSlug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado para o slug: " + businessSlug));
+        Business business = businessRepository.findById(BusinessContext.requireBusinessId())
+                .orElseThrow(() -> new ResourceNotFoundException("Barber not found"));
 
-        boolean isOwner = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(
-                authenticatedUserId,
-                business.getId(),
-                BusinessRole.OWNER
-        );
-
-        if (!isOwner) {
-            throw new SecurityException("Acesso negado. Apenas o owner da barbearia pode realizar esta operação.");
-        }
-
-        return business;
-    }
-
-    public Business validateBusinessMemberBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalAccessError("Acesso negado");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
-
-        boolean hasAcess = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(authenticatedUserId, business.getId(), List.of(BusinessRole.OWNER, BusinessRole.MANAGER, BusinessRole.BARBER));
-
-        if (!hasAcess) {
-            throw new SecurityException("Acesso negado");
-        }
-
-        return business;
-    }
-
-    public Business validateOwnerOrManagerBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalAccessError("Acesso negado");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
-
-        boolean hasAcess = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(authenticatedUserId, business.getId(), List.of(BusinessRole.OWNER, BusinessRole.MANAGER));
-
-        if (!hasAcess) {
-            throw new SecurityException("Acesso negado");
-        }
-
-        return business;
-    }
-
-    public Business validateOwnerOrManagerOrBarberBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalAccessError("Acesso negado");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-            .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado"));
-
-        boolean hasAcess = userBusinessRepository.existsByUserIdAndBusinessIdAndRoleIn(authenticatedUserId, business.getId(), List.of(BusinessRole.OWNER, BusinessRole.MANAGER, BusinessRole.BARBER));
-
-        if (!hasAcess) {
-            throw new SecurityException("Acesso negado");
-        }
-
-        return business;
-    }
-
-    public Business validateBarberBySlug(String businessSlug, Long authenticatedUserId) {
-        if (businessSlug == null || businessSlug.isBlank()) {
-            throw new IllegalArgumentException("Business slug é obrigatório");
-        }
-
-        Business business = businessRepository.findBySlug(businessSlug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business não encontrado para o slug: " + businessSlug));
-
-        boolean isBarber = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(
-                authenticatedUserId,
-                business.getId(),
-                BusinessRole.BARBER
-        );
-
-        if (!isBarber) {
-            throw new SecurityException("Acesso negado. Apenas o barbeiro pode realizar esta operação.");
-        }
-
-        return business;
-    }
-
-    @Transactional
-    public BusinessResponse update(Long id, BusinessRequest request, AppUser user) {
-        Business business = businessRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
-
-        boolean isOwner = business.getOwner().getId().equals(user.getId());
-        boolean isAdmin = user.getPlatformRole() == AppUser.PlatformRole.PLATFORM_ADMIN;
-
-        if (!isOwner && !isAdmin) {
-            throw new IllegalArgumentException("Only owner or admin can update business");
-        }
-
-        if (request.cep() != null && !request.cep().isBlank()) {
-            var addrResp = addressService.getCep(request.cep());
-            if (addrResp != null) {
-                Address address = addressMapper.toEntity(addrResp);
-                address.setNumero(request.numero());
-                address.setComplemento(request.complemento());
-                business.setAddress(address);
-            }
-        }
+        business.setAddress(addressMapper.toEntity(request.address()));
 
         business.setName(request.name());
         business.setDescription(request.description());
@@ -274,39 +152,39 @@ public class BusinessService {
         business.setAmenities(request.amenities());
         business.setInstagramLink(request.instagramLink());
 
-        return businessMapper.toResponse(businessRepository.save(business));
+        return businessMapper.toResponse(business);
     }
 
     @Transactional
-    public BusinessResponse activateBusiness(String slug, AppUser user) {
-        Business business = businessRepository.findBySlug(slug)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+    public BusinessResponse activate(Long businessId, Long userId) {
+        UserBusiness membership = userBusinessRepository
+                .findByUserIdAndBusinessId(userId, businessId)
+                .orElseThrow(() -> new SecurityException("Unauthorized."));
 
-        if (user.getPlatformRole() != AppUser.PlatformRole.PLATFORM_ADMIN) {
-            throw new SecurityException("Only admin can activate business");
+        if (membership.getRole() != BusinessRole.OWNER) {
+            throw new SecurityException("Unauthorized.");
         }
 
+        Business business = membership.getBusiness();
         business.setActive(true);
-        Business response = businessRepository.save(business);
 
-        return businessMapper.toResponse(response);
+        return businessMapper.toResponse(business);
     }
 
-    public List<BusinessResponse> findAllByOwnerId(Long ownerId) {
-        return userBusinessRepository.findAllByUserIdAndRole(ownerId, BusinessRole.OWNER).stream().map(userBusiness -> userBusiness.getBusiness()).map(businessMapper::toResponse).toList();
+    public List<BusinessSummaryResponse> findAllByOwnerId(Long ownerId) {
+        return userBusinessRepository.findAllByUserIdAndRole(ownerId, BusinessRole.OWNER)
+                .stream()
+                .map(userBusiness -> userBusiness.getBusiness())
+                .map(businessMapper::toSummary)
+                .toList();
     }
 
     @Transactional
-    public BusinessResponse deactivateBusiness(String slug, AppUser user) {
-        Business business = businessRepository.findBySlug(slug)
+    public BusinessResponse deactivate() {
+        businessGuard.requireOwner();
+
+        Business business = businessRepository.findById(BusinessContext.requireBusinessId())
                 .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
-
-        boolean isOwner = business.getOwner().getId().equals(user.getId());
-        boolean isAdmin = user.getPlatformRole() == AppUser.PlatformRole.PLATFORM_ADMIN;
-
-        if (!isOwner && !isAdmin) {
-            throw new SecurityException("Only owner or admin can deactivate business");
-        }
 
         business.setActive(false);
         Business response = businessRepository.save(business);
@@ -314,71 +192,57 @@ public class BusinessService {
         return businessMapper.toResponse(response);
     }
 
-    public List<BusinessResponse> getMyBusinesses(AppUser user) {
-        return businessRepository.findByOwnerId(user.getId()).stream()
-                .map(businessMapper::toResponse)
-                .toList();
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public String updateBusinessImage(BusinessImageType type, MultipartFile file) throws IOException {
+        businessGuard.requireOwner();
+        Long businessId = BusinessContext.requireBusinessId();
+
+        String newFileName = fileStorageService.saveImage(file, "business/" + businessId);
+
+        String oldFileName;
+        try {
+            oldFileName = transactionTemplate.execute(
+                    status -> swapImageName(businessId, type, newFileName));
+
+        } catch (RuntimeException ex) {
+            fileStorageService.deleteImage(newFileName);
+            throw ex;
+        }
+
+        if (oldFileName != null) {
+            fileStorageService.deleteImage(oldFileName);
+        }
+        return newFileName;
     }
 
-    @Transactional
-    public String updateBusinessImage(Long businessId, Long userId, String type, MultipartFile file) throws IOException {
-        Business business = businessRepository.findById(businessId)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void removeBusinessImage(BusinessImageType type) {
+        businessGuard.requireOwner();
+        Long businessId = BusinessContext.requireBusinessId();
 
-        if (!business.getOwner().getId().equals(userId)) {
-            throw new IllegalArgumentException("Access denied");
+        String oldFileName = transactionTemplate.execute(
+                status -> swapImageName(businessId, type, null));
+
+        if (oldFileName != null) {
+            fileStorageService.deleteImage(oldFileName);
         }
-
-        String oldImage = null;
-        if ("LOGO".equalsIgnoreCase(type)) {
-            oldImage = business.getBusinessImage();
-        } else if ("BACKGROUND".equalsIgnoreCase(type)) {
-            oldImage = business.getBackgroundImage();
-        } else {
-            throw new IllegalArgumentException("Invalid image type. Use LOGO or BACKGROUND");
-        }
-
-        String folder = "business/" + businessId;
-        String fileName = fileStorageService.saveImage(file, folder);
-
-        if (oldImage != null) {
-            fileStorageService.deleteImage(oldImage);
-        }
-
-        if ("LOGO".equalsIgnoreCase(type)) {
-            business.setBusinessImage(fileName);
-        } else {
-            business.setBackgroundImage(fileName);
-        }
-        
-        businessRepository.save(business);
-        return fileName;
     }
 
-    @Transactional
-    public void removeBusinessImage(Long businessId, Long userId, String type) {
-        Business business = businessRepository.findById(businessId)
-                .orElseThrow(() -> new ResourceNotFoundException("Business not found"));
+    protected String swapImageName(Long businessId, BusinessImageType type, String newFileName) {
+            Business business = businessRepository.findById(businessId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Barber not found."));
 
-        if (!business.getOwner().getId().equals(userId)) {
-            throw new IllegalArgumentException("Access denied");
-        }
-
-        String imageToRemove = null;
-        if ("LOGO".equalsIgnoreCase(type)) {
-            imageToRemove = business.getBusinessImage();
-            business.setBusinessImage(null);
-        } else if ("BACKGROUND".equalsIgnoreCase(type)) {
-            imageToRemove = business.getBackgroundImage();
-            business.setBackgroundImage(null);
-        } else {
-            throw new IllegalArgumentException("Invalid image type. Use LOGO or BACKGROUND");
-        }
-
-        if (imageToRemove != null) {
-            fileStorageService.deleteImage(imageToRemove);
-        }
-        
-        businessRepository.save(business);
+            return switch (type) {
+                case LOGO -> {
+                    String previous = business.getBusinessImage();
+                    business.setBusinessImage(newFileName);
+                    yield previous;
+                }
+                case BACKGROUND -> {
+                    String previous = business.getBackgroundImage();
+                    business.setBackgroundImage(newFileName);
+                    yield previous;
+                }
+            };
     }
 }

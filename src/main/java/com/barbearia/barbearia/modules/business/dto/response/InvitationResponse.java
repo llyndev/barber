@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
 import com.barbearia.barbearia.modules.business.model.Invitation;
+import com.barbearia.barbearia.modules.business.model.InvitationStatus;
 
 public record InvitationResponse(
         Long id,
@@ -11,7 +12,7 @@ public record InvitationResponse(
         String businessName,
         String email,
         BusinessRole role,
-        Invitation.Status status,
+        InvitationStatus status,
         Instant expiresAt
 ) {
     

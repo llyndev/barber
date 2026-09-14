@@ -1,7 +1,7 @@
 package com.barbearia.barbearia.tenant;
 
-import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.business.model.BusinessRole;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -23,8 +23,14 @@ public final class BusinessContext {
         }
     }
 
+    // Rota autenticada.
     public static void set(Long businessId, BusinessRole role) {
         CONTEXT.set(new BusinessScope(businessId, role));
+    }
+
+    // Página pública do agendamento.
+    public static void setAnonymous(Long businessId) {
+        CONTEXT.set(new BusinessScope(businessId, null));
     }
 
     // Usar require nos repositories/services
@@ -33,7 +39,7 @@ public final class BusinessContext {
 
         if (scope == null) {
             throw new IllegalStateException(
-                    "Business context not defined.");
+                    "Nenhuma barbearia no contexto.");
         }
         return scope.businessId();
     }
@@ -49,13 +55,9 @@ public final class BusinessContext {
 
     public static BusinessRole requireRole() {
         return getRole().orElseThrow(
-                () -> new ResourceNotFoundException("Role not found.")
+                () -> new AccessDeniedException("Acesso negado a esta barbearia.")
         );
     }
-
-    private static final ThreadLocal<String> BUSINESS = new ThreadLocal<>();
-
-    private static final ThreadLocal<String> BUSINESS_ROLE = new ThreadLocal<>();
 
     public static BusinessScope capture() {
         return CONTEXT.get();

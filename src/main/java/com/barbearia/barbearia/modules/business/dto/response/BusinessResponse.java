@@ -1,5 +1,7 @@
 package com.barbearia.barbearia.modules.business.dto.response;
 
+import com.barbearia.barbearia.modules.common.address.dto.response.AddressResponseDTO;
+
 import java.util.List;
 
 public record BusinessResponse(
@@ -14,13 +16,7 @@ public record BusinessResponse(
         String businessImage,
         String backgroundImage,
         String owner,
-        String cep,
-        String logradouro,
-        String numero,
-        String complemento,
-        String bairro,
-        String cidade,
-        String uf
+        AddressResponseDTO addres
 ) {
 
 }

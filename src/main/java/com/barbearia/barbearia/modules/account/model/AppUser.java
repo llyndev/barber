@@ -1,5 +1,6 @@
 package com.barbearia.barbearia.modules.account.model;
 
+import com.barbearia.barbearia.modules.business.model.PlanType;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,16 +45,15 @@ public class AppUser{
     @Column(name = "users_role")
     private PlatformRole platformRole;
 
-    private String plantType;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "plan_type")
+    private PlanType planType;
 
-    @Builder.Default
     @Column(nullable = true)
     private boolean isBusinessCreator = false;
 
-    @Builder.Default
     private boolean active = true;
 
-    @Builder.Default
     private boolean blocked = false;
 
     @Column(nullable = true)
@@ -61,12 +61,10 @@ public class AppUser{
 
     private LocalDate dateExpirationAccount;
     
-    @OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     private List<UserBusiness> userBusinesses;
 
-    public enum PlatformRole {
-        CLIENT,
-        BUSINESS_OWNER,
-        PLATFORM_ADMIN
+    public boolean hasActivePlan() {
+        return dateExpirationAccount != null && dateExpirationAccount.isAfter(LocalDate.now());
     }
 }

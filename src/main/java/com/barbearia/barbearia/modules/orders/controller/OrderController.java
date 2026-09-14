@@ -4,12 +4,14 @@ import com.barbearia.barbearia.modules.orders.dto.request.AddOrderItemRequest;
 import com.barbearia.barbearia.modules.orders.dto.request.CreateOrderRequest;
 import com.barbearia.barbearia.modules.orders.dto.response.OrderResponse;
 import com.barbearia.barbearia.modules.orders.service.OrderService;
+import com.barbearia.barbearia.security.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import com.barbearia.barbearia.modules.orders.dto.request.CheckoutRequest;
@@ -37,8 +39,8 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/checkout")
-    public ResponseEntity<OrderResponse> checkout(@PathVariable Long id, @RequestBody @Valid CheckoutRequest request) {
-        return ResponseEntity.ok(orderService.checkout(id, request));
+    public ResponseEntity<OrderResponse> checkout(@PathVariable Long id, @RequestBody @Valid CheckoutRequest request, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        return ResponseEntity.ok(orderService.checkout(id, request, userDetails.id()));
     }
 
     @GetMapping("/{id}")
@@ -47,7 +49,7 @@ public class OrderController {
     }
 
     @GetMapping("/business/{slug}")
-    public ResponseEntity<List<OrderResponse>> getOrderByBusiness(@PathVariable String slug) {
-        return ResponseEntity.ok(orderService.getOrderByBusiness(slug));
+    public ResponseEntity<List<OrderResponse>> getOrderByBusiness(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.getOrderByBusiness(id));
     }
 }

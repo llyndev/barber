@@ -1,8 +1,10 @@
 package com.barbearia.barbearia.modules.account.service;
 
+import com.barbearia.barbearia.exception.EmailAlreadyExistsException;
 import com.barbearia.barbearia.modules.account.dto.request.CompleteRegistrationRequest;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.account.model.PlatformRole;
 import com.barbearia.barbearia.modules.leads.model.Lead;
 import com.barbearia.barbearia.modules.leads.model.LeadStatus;
 import com.barbearia.barbearia.modules.account.dto.request.RegisterRequest;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -25,9 +28,12 @@ public class RegisterService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public void registerUser(RegisterRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new IllegalStateException("Email already exists");
+    public AppUser registerUser(RegisterRequest request) {
+
+        String email = request.email().trim().toLowerCase();
+
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException("Email already exists");
         }
 
         if (!request.password().equals(request.confirmPassword())) {
@@ -36,12 +42,16 @@ public class RegisterService {
 
         AppUser newUser = new AppUser();
         newUser.setName(request.name());
-        newUser.setEmail(request.email());
+        newUser.setEmail(email);
         newUser.setTelephone(request.telephone());
-        newUser.setPlatformRole(AppUser.PlatformRole.CLIENT);
+        newUser.setPlatformRole(PlatformRole.CLIENT);
         newUser.setPassword(passwordEncoder.encode(request.password()));
 
-        userRepository.save(newUser);
+        try {
+            return userRepository.saveAndFlush(newUser);
+        } catch (DataIntegrityViolationException ex) {
+            throw new EmailAlreadyExistsException("Email already exists");
+        }
     }
 
     @Transactional
@@ -67,8 +77,8 @@ public class RegisterService {
         newUser.setTelephone(lead.getTelephone());
         newUser.setDocument(request.document());
         newUser.setPassword(passwordEncoder.encode(request.password()));
-        newUser.setPlatformRole(AppUser.PlatformRole.BUSINESS_OWNER);
-        newUser.setPlantType(lead.getPlan());
+        newUser.setPlatformRole(PlatformRole.BUSINESS_OWNER);
+        newUser.setPlanType(lead.getPlan());
         newUser.setActive(true);
         newUser.setDateExpirationAccount(lead.getAccountExpirationDate());
 

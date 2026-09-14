@@ -7,26 +7,30 @@ import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingProduct
 import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
 import com.barbearia.barbearia.modules.account.mapper.UserMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class SchedulingMapper {
 
-    public static SchedulingResponse toResponse(Scheduling scheduling) {
+    private final BarberServiceMapper barberServiceMapper;
+
+    public SchedulingResponse toResponse(Scheduling scheduling) {
 
         if (scheduling == null) {
             return null;
         }
 
-        List<BarberServiceResponse> serviceResponses = scheduling.getBarberService().stream()
-                .map(BarberServiceMapper::toDTO)
-                .toList();
+        List<BarberServiceResponse> serviceResponses = scheduling.getBarberService() == null ? List.of()
+                : scheduling.getBarberService().stream()
+                        .map(barberServiceMapper::toDTO)
+                        .toList();
 
-        List<SchedulingProductResponse> productResponses = scheduling.getProductsUsed() == null ? 
-            List.of() :
-            scheduling.getProductsUsed().stream()
+        List<SchedulingProductResponse> productResponses = scheduling.getProductsUsed() == null ? List.of()
+            : scheduling.getProductsUsed().stream()
                 .map(sp -> new SchedulingProductResponse(
                     sp.getProduct().getId(),
                     sp.getProduct().getName(),
@@ -35,20 +39,18 @@ public class SchedulingMapper {
                 ))
                 .toList();
 
-        List<SchedulingAdditionalValueResponse> additionalValueResponses = scheduling.getAdditionalValues() == null ?
-            List.of() :
-            scheduling.getAdditionalValues().stream()
+        List<SchedulingAdditionalValueResponse> additionalValueResponses = scheduling.getAdditionalValue().stream()
                 .map(av -> new SchedulingAdditionalValueResponse(
-                    av.getId(),
-                    av.getBarber().getId(),
-                    av.getBarber().getName(),
-                    av.getValue()
+                        av.getId(),
+                        av.getBarber().getId(),
+                        av.getBarber().getName(),
+                        av.getValue()
                 ))
                 .toList();
 
-        var clientResponse = scheduling.getUser() != null ? UserMapper.toClientResponse(scheduling.getUser()) : null;
-
-        var barberResponse = UserMapper.toBarberResponse(scheduling.getBarber());
+        var user = scheduling.getUser();
+        var barber = scheduling.getBarber();
+        var business = scheduling.getBusiness();
 
         return new SchedulingResponse(
                 scheduling.getId(),
@@ -57,24 +59,22 @@ public class SchedulingMapper {
                 scheduling.getUser() != null ? scheduling.getUser().getId() : null,
                 scheduling.getUser() != null ? scheduling.getUser().getName() : scheduling.getClientName(),
                 scheduling.getUser() != null ? scheduling.getUser().getEmail() : null,
-                scheduling.getBarber().getId(),
-                scheduling.getBarber().getName(),
+                barber != null ? barber.getId() : null,
+                barber != null ? barber.getName() : null,
                 serviceResponses,
-                clientResponse,
-                barberResponse,
+                user != null ? UserMapper.toClientResponse(user) : null,
+                barber != null ? UserMapper.toBarberResponse(barber) : null,
                 scheduling.getObservation(),
-                scheduling.getAdditionalValue(),
+                scheduling.getTotalAdditionalValue(),
                 additionalValueResponses,
                 scheduling.getPaymentMethod(),
                 productResponses,
-                scheduling.getBusiness() != null ? scheduling.getBusiness().getName() : null,
-                scheduling.getBusiness() != null ? scheduling.getBusiness().getSlug() : null
+                business != null ? business.getName() : null,
+                business != null ? business.getSlug() : null
         );
     }
 
-    public static List<SchedulingResponse> toResponseList(List<Scheduling> scheduling) {
-        return scheduling.stream()
-                .map(SchedulingMapper::toResponse)
-                .toList();
+    public List<SchedulingResponse> toResponseList(List<Scheduling> scheduling) {
+        return scheduling.stream().map(this::toResponse).toList();
     }
 }

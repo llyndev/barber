@@ -1,6 +1,9 @@
 package com.barbearia.barbearia.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -87,7 +90,7 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(IllegalStateException.class)
+    @ExceptionHandler(IllegalAccessException.class)
     public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException exception) {
         log.warn("Illegal state: {}", exception.getMessage());
         Map<String, String> body = Map.of("error", exception.getMessage());
@@ -106,5 +109,63 @@ public class GlobalExceptionHandler {
         log.warn("Bad request: {}", exception.getMessage());
         Map<String, String> body = Map.of("error", exception.getMessage());
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleEntityNotFound(EntityNotFoundException exception) {
+        log.warn("Entity not found: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "The requested resource was not found in the database.");
+        return new ResponseEntity<>(body, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        log.warn("Data integrity violation: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Invalid operation. Check if the related data actually exists or if there is duplicate information.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handleRateLimit(RateLimitExceededException exception) {
+        log.warn("Rate limit: {}", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                // Header padrão HTTP: o front sabe quando pode tentar de novo
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfterSeconds()))
+                .body(Map.of("error", exception.getMessage(), "code", "RATE_LIMIT_EXCEEDED"));
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleEmailExists(EmailAlreadyExistsException exception) {
+        log.warn("Email already exists: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Email already exists.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(PlanLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handlePlanLimitException(PlanLimitExceededException exception) {
+        log.warn("Plan limit exceeded: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Plan limit exceed for this business.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(SlugAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleSlugAlreadyException(SlugAlreadyExistsException exception) {
+        log.warn("Slug already exists: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Plan limit exceed for this business.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, String>> handleConflictException(ConflictException exception) {
+        log.warn("Conflict exception: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Conflict exception.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+    }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<Map<String, String>> handleInsufficientStock(InsufficientStockException exception) {
+        log.warn("Insufficient stock exception: {}", exception.getMessage());
+        Map<String, String> body = Map.of("error", "Conflict exception.");
+        return new ResponseEntity<>(body, HttpStatus.CONFLICT);
     }
 }

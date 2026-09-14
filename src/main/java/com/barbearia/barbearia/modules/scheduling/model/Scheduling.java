@@ -8,6 +8,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -30,6 +31,9 @@ public class Scheduling {
     @Column(name = "client_name")
     private String clientName;
 
+    @Column(name = "client_number")
+    private String clientNumber;
+
     @ManyToOne()
     @JoinColumn(name = "barber_id")
     private AppUser barber;
@@ -39,8 +43,8 @@ public class Scheduling {
             name = "scheduling_services",
             joinColumns = @JoinColumn(name = "scheduling_id"),
             inverseJoinColumns = @JoinColumn(name = "barber_service_id"))
-    private List<BarberService> barberService;
-
+    @Builder.Default
+    private List<BarberService> barberService = new ArrayList<>();
     @Column(name = "scheduling_date_time")
     private LocalDateTime dateTime;
 
@@ -54,11 +58,9 @@ public class Scheduling {
     @Column(name = "reason_cancel")
     private String reasonCancel;
 
-    @Column(name = "additional_value")
-    private BigDecimal additionalValue;
-
     @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SchedulingAdditionalValue> additionalValues;
+    @Builder.Default
+    private List<SchedulingAdditionalValue> additionalValue = new ArrayList<>();
 
     @Column(name = "observation_scheduling")
     private String observation;
@@ -67,10 +69,27 @@ public class Scheduling {
     private PaymentMethod paymentMethod;
 
     @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<SchedulingProduct> productsUsed;
+    @Builder.Default
+    private List<SchedulingProduct> productsUsed = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "business_id")
     private Business business;
+
+    public void addAdditionalValue(SchedulingAdditionalValue value) {
+        value.setScheduling(this);
+        this.additionalValue.add(value);
+    }
+
+    public BigDecimal getTotalAdditionalValue() {
+        return additionalValue.stream()
+                .map(SchedulingAdditionalValue::getValue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public void addProductUsed(SchedulingProduct request) {
+        request.setScheduling(this);
+        this.productsUsed.add(request);
+    }
 
 }
