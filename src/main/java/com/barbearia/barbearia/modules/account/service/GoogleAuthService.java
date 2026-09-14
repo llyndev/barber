@@ -76,8 +76,16 @@ public class GoogleAuthService {
 
         userRepository.save(user);
 
-        String token = jwtUtil.generateAccessToken(UserDetailsImpl.from(user));
-        return new AuthResponse(token);
+        UserDetailsImpl principal = UserDetailsImpl.from(user);
+        String accessToken = jwtUtil.generateAccessToken(principal);
+
+        return new AuthResponse(
+                accessToken,
+                jwtUtil.getAccessTtlSeconds(),
+                user.getId(),
+                user.getName(),
+                user.getPlatformRole()
+        );
     }
 
     private AppUser createGoogleUser(String email, String name) {

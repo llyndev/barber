@@ -22,25 +22,25 @@ public class GoogleCalendarController {
     public ResponseEntity<GoogleCalendarAuthorizationUrlResponse> authorizeUrl(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestParam String redirectUri) {
-        return ResponseEntity.ok(googleCalenderService.createAuthorizationUrl(userDetails.user().getId(), redirectUri));
+        return ResponseEntity.ok(googleCalenderService.createAuthorizationUrl(userDetails.id(), redirectUri));
     }
 
     @PostMapping("/connect")
     public ResponseEntity<GoogleCalendarConnectionResponse> connect(
             @AuthenticationPrincipal UserDetailsImpl userDetails,
             @RequestBody @Valid GoogleCalendarConnectRequest request) {
-        return ResponseEntity.ok(googleCalenderService.connectCurrentUser(userDetails.user().getId(), request));
+        return ResponseEntity.ok(googleCalenderService.connectCurrentUser(userDetails.id(), request));
     }
 
     @GetMapping("/status")
     public ResponseEntity<GoogleCalendarConnectionResponse> status(
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return ResponseEntity.ok(googleCalenderService.getStatus(userDetails.user().getId()));
+        return ResponseEntity.ok(googleCalenderService.getStatus(userDetails.id()));
     }
 
     @DeleteMapping("/disconnect")
     public ResponseEntity<Void> disconnect(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        googleCalenderService.disconnectCurrentUser(userDetails.user().getId());
+        googleCalenderService.disconnectCurrentUser(userDetails.id());
         return ResponseEntity.noContent().build();
     }
 }
