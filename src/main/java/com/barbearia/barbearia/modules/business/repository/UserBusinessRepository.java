@@ -36,4 +36,14 @@ public interface UserBusinessRepository extends JpaRepository<UserBusiness, Long
             AND ub.business.active = true
             """)
     long countActiveBusinessesByUserIdAndRole(@Param("userId") Long userId, @Param("role") BusinessRole role);
+
+    @Query("select b.id from Business b where b.slug = :slug and b.active = true")
+    Optional<Long> findBySlug(@Param("slug") String slug);
+
+    // TODO: ADICIONAR and ub.active = true
+    @Query("""
+            select ub.role from UserBusiness ub
+            where ub.user.id = :userId and ub.business.id = :businessId
+            """)
+    Optional<BusinessRole> findRoleByUserIdAndBusinessId(@Param("userId") Long userId, @Param("businessId") Long businessId);
 }
