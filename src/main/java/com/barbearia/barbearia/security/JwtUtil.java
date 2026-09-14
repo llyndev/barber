@@ -124,4 +124,8 @@ public class JwtUtil {
         return Long.valueOf(claims.getSubject());
     }
 
+    public long getAccessTtlSeconds() {
+        return accessTtl.toSeconds();
+    }
+
 }
