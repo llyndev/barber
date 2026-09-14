@@ -21,7 +21,6 @@ import java.time.Duration;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AddressService {
 
     private final RestClient viaCepClient;
