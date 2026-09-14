@@ -12,7 +12,7 @@ public record UserResponse(
         String name,
         String email,
         String telephone,
-        PlanType plantType,
+        PlanType planType,
         boolean active,
         PlatformRole platformRole,
         String profileImage,

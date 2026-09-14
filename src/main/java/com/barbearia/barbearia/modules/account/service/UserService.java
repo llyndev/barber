@@ -176,7 +176,7 @@ public class UserService {
 
         // Atualiza role para BUSINESS_OWNER
         user.setPlatformRole(PlatformRole.BUSINESS_OWNER);
-        user.setPlantType(request.plantType());
+        user.setPlanType(request.planType());
         user.setBusinessCreator(true);
         
         // Se houver data de expiração, atualiza

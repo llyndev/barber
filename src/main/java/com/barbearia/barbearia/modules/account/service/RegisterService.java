@@ -78,7 +78,7 @@ public class RegisterService {
         newUser.setDocument(request.document());
         newUser.setPassword(passwordEncoder.encode(request.password()));
         newUser.setPlatformRole(PlatformRole.BUSINESS_OWNER);
-        newUser.setPlantType(lead.getPlan());
+        newUser.setPlanType(lead.getPlan());
         newUser.setActive(true);
         newUser.setDateExpirationAccount(lead.getAccountExpirationDate());
 

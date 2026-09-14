@@ -45,16 +45,15 @@ public class AppUser{
     @Column(name = "users_role")
     private PlatformRole platformRole;
 
-    private PlanType plantType;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "plan_type")
+    private PlanType planType;
 
-    @Builder.Default
     @Column(nullable = true)
     private boolean isBusinessCreator = false;
 
-    @Builder.Default
     private boolean active = true;
 
-    @Builder.Default
     private boolean blocked = false;
 
     @Column(nullable = true)
