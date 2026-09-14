@@ -16,7 +16,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.business.repository.UserBusinessRepository;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 
@@ -33,7 +32,6 @@ public class ContextFilter extends OncePerRequestFilter {
     private static final String BUSINESS_HEADER = "X-Business-Slug";
 
     private final BusinessSlugResolver slugResolver;
-    private final BusinessRepository businessRepository;
     private final UserBusinessRepository userBusinessRepository;
     private final ObjectMapper objectMapper;
 
