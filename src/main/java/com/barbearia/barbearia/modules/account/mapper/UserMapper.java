@@ -4,7 +4,6 @@ import com.barbearia.barbearia.modules.account.dto.response.MyMembershipResponse
 import com.barbearia.barbearia.modules.business.dto.response.BarberResponse;
 import com.barbearia.barbearia.modules.account.dto.response.ClientResponse;
 import com.barbearia.barbearia.modules.account.dto.response.UserResponse;
-import com.barbearia.barbearia.modules.business.dto.response.UserBusinessResponse;
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.business.model.Business;
 import com.barbearia.barbearia.modules.business.model.UserBusiness;
@@ -25,7 +24,7 @@ public class UserMapper {
                 appUser.getName(),
                 appUser.getEmail(),
                 appUser.getTelephone(),
-                appUser.getPlantType(),
+                appUser.getPlanType(),
                 appUser.isActive(),
                 appUser.getPlatformRole(),
                 buildImageUrl(appUser.getProfileImage()),
@@ -47,7 +46,7 @@ public class UserMapper {
                 appUser.getName(),
                 appUser.getEmail(),
                 appUser.getTelephone(),
-                appUser.getPlantType(),
+                appUser.getPlanType(),
                 appUser.isActive(),
                 appUser.getPlatformRole(),
                 buildImageUrl(appUser.getProfileImage()),

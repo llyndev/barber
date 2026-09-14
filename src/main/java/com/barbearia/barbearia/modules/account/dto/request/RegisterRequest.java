@@ -21,6 +21,7 @@ public record RegisterRequest(
         @NotBlank
         String confirmPassword,
 
+        @NotBlank
         PlatformRole platformRole
 
 ) {

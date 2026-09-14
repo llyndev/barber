@@ -25,7 +25,7 @@ public class PlanPolicy {
     // Valida se o usuário pode criar mais uma barbearia
     public void ensureCanCreateBusiness(AppUser user) {
 
-        PlanType plan = user.getPlantType();
+        PlanType plan = user.getPlanType();
         if (plan == null) {
             throw new PlanLimitExceededException("NO_ACTIVE_PLAN");
         }
@@ -36,7 +36,7 @@ public class PlanPolicy {
 
         long current = userBusinessRepository.countActiveBusinessesByUserIdAndRole(user.getId(), BusinessRole.OWNER);
 
-        if (!user.getPlantType().allowsAnotherBusiness(current)) {
+        if (!user.getPlanType().allowsAnotherBusiness(current)) {
             throw new PlanLimitExceededException("BUSINESS_LIMIT_REACHED");
         }
     }
@@ -45,7 +45,7 @@ public class PlanPolicy {
     public void ensureCanAddBarber(Business business) {
 
         AppUser owner = business.getOwner();
-        PlanType plan = owner.getPlantType();
+        PlanType plan = owner.getPlanType();
 
         if (plan == null || !owner.hasActivePlan()) {
             throw new PlanLimitExceededException("PLAN_EXPIRED");
@@ -53,7 +53,7 @@ public class PlanPolicy {
 
         long active = userBusinessRepository.countByBusinessIdAndRole(business.getId(), BusinessRole.OWNER);
 
-        long pending = invitationRepository.countPendingByBusinessIdAndRole(business.getId(), BusinessRole.BARBER, Instant.now());
+        long pending = invitationRepository.countByBusinessIdAndRoleAndStatusAndExpiresAtAfter(business.getId(), BusinessRole.BARBER, InvitationStatus.PENDING, Instant.now());
 
         if (!plan.allowsAnotherBarber(active + pending)) {
             throw new PlanLimitExceededException("BARBER_LIMIT_REACHED");
