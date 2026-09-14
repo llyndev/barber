@@ -31,7 +31,7 @@ public class RefreshToken {
     private Instant expiresAt;
 
     // null = ativo. Preenchido no logout, na rotação ou no bloqueio do usuário
-    private Instant revokeAt;
+    private Instant revokedAt;
 
     // detecta reuso de token antigo
     private String replacedByJti;
@@ -42,10 +42,15 @@ public class RefreshToken {
     @Column(length = 255)
     private String userAgent;
 
-    @Column(nullable = false)
-    private Instant createdAt = Instant.now();
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @PrePersist
+    void onCreate() {
+        this.createdAt = Instant.now();
+    }
 
     public boolean isActive() {
-        return revokeAt == null && expiresAt.isAfter(Instant.now());
+        return revokedAt == null && expiresAt.isAfter(Instant.now());
     }
 }
