@@ -54,7 +54,7 @@ public class ProductMapper {
                 product.getId(),
                 product.getName(),
                 product.getDescription(),
-                product.getQuantity(),
+                product.getQuantity() != null && product.getQuantity() > 0,
                 product.getPrice()
         );
     }
