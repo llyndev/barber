@@ -70,7 +70,7 @@ public class Scheduling {
 
     @OneToMany(mappedBy = "scheduling", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    private List<SchedulingProduct> productsUsed;
+    private List<SchedulingProduct> productsUsed = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "business_id")
