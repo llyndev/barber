@@ -41,7 +41,7 @@ public class InvitationController {
 
     @GetMapping("/my-invitations")
     public ResponseEntity<List<InvitationResponse>> getMyPendingInvitations(@AuthenticationPrincipal UserDetailsImpl userDetails) {
-        List<InvitationResponse> invitations = invitationService.getMyPendingInvitations(userDetails);
+        List<InvitationResponse> invitations = invitationService.getMyPendingInvitations(userDetails.id());
         return ResponseEntity.ok(invitations);
     }
 
@@ -49,7 +49,7 @@ public class InvitationController {
     public ResponseEntity<UserBusinessResponse> acceptInvitation(
             @PathVariable("id") Long invitationId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        UserBusinessResponse link = invitationService.acceptInvitation(invitationId, userDetails);
+        UserBusinessResponse link = invitationService.acceptInvitation(invitationId, userDetails.id());
         return ResponseEntity.ok(link);
     }
 
@@ -57,7 +57,7 @@ public class InvitationController {
     public ResponseEntity<Void> declineInvitation(
             @PathVariable("id") Long invitationId,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        invitationService.declineInvitation(invitationId, userDetails);
+        invitationService.declineInvitation(invitationId, userDetails.id());
         return ResponseEntity.noContent().build();
     }
 }

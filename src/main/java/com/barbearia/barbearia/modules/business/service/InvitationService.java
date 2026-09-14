@@ -80,7 +80,7 @@ public class InvitationService {
 
             PlanType ownerPlan;
             try {
-                ownerPlan = owner.getPlantType();
+                ownerPlan = owner.getPlanType();
             } catch (Exception e) {
                 throw new IllegalStateException("Barber shop owner without a plan set up.");
             }
@@ -119,13 +119,11 @@ public class InvitationService {
     }
 
     @Transactional(readOnly = true)
-    public List<InvitationResponse> getMyPendingInvitations(UserDetailsImpl userDetails) {
-        if (userDetails == null) {
-            throw new ResourceNotFoundException("User not found");
-        }
+    public List<InvitationResponse> getMyPendingInvitations(Long userId) {
+        AppUser user = userRepository.findById(userId).orElseThrow(
+                () -> new ResourceNotFoundException("Usuário não encontrado."));
 
-        String userEmail = userDetails.user().getEmail();
-        List<Invitation> invitations = invitationRepository.findByEmailAndStatus(userEmail, InvitationStatus.PENDING);
+        List<Invitation> invitations = invitationRepository.findByEmailAndStatus(user.getEmail(), InvitationStatus.PENDING);
 
         return invitations.stream()
                 .map(invitationMapper::toResponse)
@@ -133,24 +131,20 @@ public class InvitationService {
     }
 
     @Transactional
-    public UserBusinessResponse acceptInvitation(Long invitationId, UserDetailsImpl userDetails) {
-        if (userDetails == null) {
-            throw new ResourceNotFoundException("User not found");
-        }
+    public UserBusinessResponse acceptInvitation(Long invitationId, Long userId) {
+        AppUser user = userRepository.findById(userId).orElseThrow(
+                () -> new ResourceNotFoundException("Usuário não encontrado."));
 
-        String userEmail = userDetails.user().getEmail();
-        AppUser user = userDetails.user();
-
-        Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, userEmail, InvitationStatus.PENDING)
+        Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, user.getEmail(), InvitationStatus.PENDING)
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
     
         if (invitation.getExpiresAt().isBefore(Instant.now())) {
-            invitation.setStatus(Invitation.Status.EXPIRED);
+            invitation.setStatus(InvitationStatus.EXPIRED);
             invitationRepository.save(invitation);
             throw new IllegalArgumentException("Invitation expired.");
         }
         
-        invitation.setStatus(Invitation.Status.ACCEPTED);
+        invitation.setStatus(InvitationStatus.ACCEPTED);
         invitationRepository.save(invitation);
 
         UserBusiness link = UserBusiness.builder()
@@ -165,15 +159,11 @@ public class InvitationService {
     }
 
     @Transactional
-    public void declineInvitation(Long invitationId, UserDetailsImpl userDetails) {
+    public void declineInvitation(Long invitationId, Long userId) {
+        AppUser user = userRepository.findById(userId).orElseThrow(
+                () -> new ResourceNotFoundException("Usuário não encontrado."));
 
-        if (userDetails == null) {
-            throw new ResourceNotFoundException("User not found");
-        }
-
-        String userEmail = userDetails.user().getEmail();
-
-        Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, userEmail, Invitation.Status.PENDING)
+        Invitation invitation = invitationRepository.findByIdAndEmailAndStatus(invitationId, user.getEmail(), InvitationStatus.PENDING)
                 .orElseThrow(() -> new ResourceNotFoundException("Invitation not found"));
 
         invitation.setStatus(InvitationStatus.CANCELED);
