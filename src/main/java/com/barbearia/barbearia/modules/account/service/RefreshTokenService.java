@@ -53,9 +53,9 @@ public class RefreshTokenService {
         RefreshToken stored = refreshTokenRepository.findByJti(jti)
                 .orElseThrow(() -> new InvalidRequestException("Refresh token unknown"));
 
-        if (stored.getRevokeAt() != null) {
+        if (stored.getRevokedAt() != null) {
             log.warn("Reuso de refresh token detectado! userId={} jti={}", userId, jti);
-            refreshTokenRepository.revokedAllByUserId(userId, Instant.now());
+            refreshTokenRepository.revokeAllByUserId(userId, Instant.now());
             throw new SecurityException(
                     "Session invalidated for security reasons. Please log in again."
             );
@@ -75,7 +75,7 @@ public class RefreshTokenService {
         Claims newClaims = jwtUtil.parseClaims(newRefresh);
 
         // Revoga o antigo
-        stored.setRevokeAt(Instant.now());
+        stored.setRevokedAt(Instant.now());
         stored.setReplacedByJti(newClaims.getId());
 
         persist(newClaims, userId, request);
@@ -88,7 +88,7 @@ public class RefreshTokenService {
         try {
             Claims claims = jwtUtil.parseRefreshToken(rawRefreshToken);
             refreshTokenRepository.findByJti(claims.getId())
-                    .ifPresent(token -> token.setRevokeAt((Instant.now())));
+                    .ifPresent(token -> token.setRevokedAt((Instant.now())));
         } catch (JwtException ex) {
             log.debug("Logout invalid token: {}", ex.getMessage());
         }
@@ -96,7 +96,7 @@ public class RefreshTokenService {
 
     @Transactional
     public void revokeAllForUser(Long userId) {
-        int count = refreshTokenRepository.revokedAllByUserId(userId, Instant.now());
+        int count = refreshTokenRepository.revokeAllByUserId(userId, Instant.now());
         log.info("{} + {}", count, userId);
     }
 
