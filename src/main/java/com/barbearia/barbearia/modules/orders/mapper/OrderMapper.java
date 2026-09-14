@@ -48,9 +48,10 @@ public class OrderMapper {
 
         List<SchedulingAdditionalValueResponse> additionalValues = List.of();
         if (order.getSchedulingId() != null) {
+
             Scheduling s = schedulingRepository.findById(order.getSchedulingId()).orElse(null);
-            if (s != null && s.getAdditionalValues() != null) {
-                additionalValues = s.getAdditionalValues().stream()
+            if (s != null && s.getAdditionalValue() != null) {
+                additionalValues = s.getAdditionalValue().stream()
                         .map(av -> new SchedulingAdditionalValueResponse(
                                 av.getId(),
                                 av.getBarber().getId(),
