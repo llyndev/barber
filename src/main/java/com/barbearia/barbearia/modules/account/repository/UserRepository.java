@@ -21,7 +21,12 @@ public interface UserRepository extends JpaRepository<AppUser, Long> {
 
     List<AppUser> findAllByPlatformRole(PlatformRole platformRole);
 
-    List<AppUser> findAllByIdInAndBusinessId(Collection<Long> ids, Long businessId);
+
+    @Query("""
+            select distinct u from AppUser u join u.userBusinesses ub
+            where u.id in :ids and ub.business.id = :businessId
+            """)
+    List<AppUser> findAllByIdInAndBusinessId(@Param("ids") Collection<Long> ids,@Param("businessId") Long businessId);
 
     boolean existsByEmail(String email);
 
