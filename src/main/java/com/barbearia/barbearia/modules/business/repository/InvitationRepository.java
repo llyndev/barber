@@ -20,15 +20,9 @@ public interface InvitationRepository extends JpaRepository<Invitation, Long>{
 
     Optional<Invitation> findByIdAndEmailAndStatus(Long id, String email, InvitationStatus status);
 
-    @Query("""
-            SELECT count(i) FROM invitations i
-            WHERE i.business.id = :businessId
-            AND i.role = :role
-            AND i.status = com.barbearia.barbearia.modules.business.model.InvitationStatus.PENDING
-            AND i.expiresAt > :now
-            """)
-    long countPendingByBusinessIdAndRole(@Param("businessId") Long businessId,
-                                         @Param("role") BusinessRole role,
-                                         @Param("now") Instant now);
+    long countByBusinessIdAndRoleAndStatusAndExpiresAtAfter(Long businessId,
+                                                            BusinessRole role,
+                                                            InvitationStatus status,
+                                                            Instant now);
     
 }
