@@ -3,6 +3,9 @@ package com.barbearia.barbearia.modules.inventory.controller;
 import java.util.List;
 
 import com.barbearia.barbearia.modules.inventory.dto.response.PublicProdutResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,48 +33,68 @@ public class InventoryController {
     
     private final InventoryService inventoryService;
 
-    @GetMapping("/public/{slug}")
-    public ResponseEntity<List<PublicProdutResponse>> publicListProducts(@PathVariable String slug) {
-        return ResponseEntity.ok(inventoryService.publicListProducts(slug));
+    /**
+     * Lista todos os produtos ao público.
+     */
+    @GetMapping("/public")
+    public ResponseEntity<List<PublicProdutResponse>> listPublicProducts() {
+        return ResponseEntity.ok(inventoryService.listPublicProducts());
     }
 
-    @GetMapping("/{slug}")
-    public ResponseEntity<List<ProductResponse>> listProducts(@PathVariable String slug, @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return ResponseEntity.ok(inventoryService.listProducts(slug, userDetails.user()));
+    /**
+     * Lista todos os produtos para os staffs com o response completo de Product.
+     */
+    @GetMapping()
+    public ResponseEntity<List<ProductResponse>> listStaffProducts() {
+        return ResponseEntity.ok(inventoryService.listStaffProducts());
     }
 
-    @PostMapping("/{slug}")
-    public ResponseEntity<ProductResponse> createProduct(@PathVariable String slug, @RequestBody ProductRequest product, @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return ResponseEntity.ok(inventoryService.createProduct(slug, product, userDetails.user()));
+    /**
+     * Cria um novo produto.
+     */
+    @PostMapping()
+    public ResponseEntity<ProductResponse> createProduct(@RequestBody ProductRequest product) {
+        return ResponseEntity.ok(inventoryService.createProduct(product));
     }
 
-    @PutMapping("/{slug}/{productId}")
+    /**
+     * Atualizar um produto existente em uma barbearia.
+     */
+    @PutMapping("/{productId}")
     public ResponseEntity<ProductResponse> updateProduct(
-            @PathVariable String slug, 
             @PathVariable Long productId, 
             @RequestBody ProductRequest product,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return ResponseEntity.ok(inventoryService.updateProduct(slug, productId, product, userDetails.user()));
+        return ResponseEntity.ok(inventoryService.updateProduct(productId, product, userDetails.id()));
     }
 
-    @PostMapping("/{slug}/{productId}/movement")
-    public ResponseEntity<Void> registerMovement(
-            @PathVariable String slug, 
+    /**
+     * Registra uma movimentação manual no invetario.
+     */
+    @PostMapping("/{productId}/movement")
+    public ResponseEntity<Void> registerManualMovement(
             @PathVariable Long productId, 
             @RequestBody MovementRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        inventoryService.registerMovement(slug, productId, request.type(), request.quantity(), request.reason(), userDetails.user());
+
+        inventoryService.registerManualMovement(productId, request.type(), request.quantity(), request.reason(), userDetails.id());
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/{slug}/history")
-    public ResponseEntity<List<StockMovementResponse>> listHistory(@PathVariable String slug, @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        return ResponseEntity.ok(inventoryService.listMovements(slug, userDetails.user()));
+    /**
+     * Lista todo o historico de movimentação do inventario.
+     */
+    @GetMapping("/history")
+    public ResponseEntity<Page<StockMovementResponse>> listHistory(@PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(inventoryService.listMovements(pageable));
     }
 
-    @DeleteMapping("/{slug}/{productId}")
-    public ResponseEntity<Void> deactivateProduct(@PathVariable String slug, @PathVariable Long productId, @AuthenticationPrincipal UserDetailsImpl userDetails) {
-        inventoryService.deactivateProduct(slug, productId, userDetails.user());
+    /**
+     * Desativa um produto por id.
+     */
+    @DeleteMapping("/{productId}/deactivate")
+    public ResponseEntity<Void> deactivateProduct(@PathVariable Long productId) {
+        inventoryService.deactivateProduct(productId);
         return ResponseEntity.noContent().build();
     }
 
