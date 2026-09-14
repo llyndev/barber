@@ -3,14 +3,12 @@ package com.barbearia.barbearia.modules.orders.service;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
-import com.barbearia.barbearia.modules.business.service.BusinessService;
 import com.barbearia.barbearia.modules.catalog.model.BarberService;
 import com.barbearia.barbearia.modules.catalog.repository.BarberServiceRepository;
 import com.barbearia.barbearia.modules.inventory.dto.request.StockMovementCommand;
 import com.barbearia.barbearia.modules.inventory.model.Product;
 import com.barbearia.barbearia.modules.inventory.model.StockMovementType;
 import com.barbearia.barbearia.modules.inventory.repository.ProductRepository;
-import com.barbearia.barbearia.modules.inventory.repository.StockMovementRepository;
 import com.barbearia.barbearia.modules.inventory.service.InventoryService;
 import com.barbearia.barbearia.modules.orders.dto.request.AddOrderItemRequest;
 import com.barbearia.barbearia.modules.orders.dto.request.CheckoutRequest;
@@ -19,6 +17,7 @@ import com.barbearia.barbearia.modules.orders.dto.response.OrderResponse;
 import com.barbearia.barbearia.modules.orders.mapper.OrderMapper;
 import com.barbearia.barbearia.modules.orders.model.*;
 import com.barbearia.barbearia.modules.orders.repository.OrderRepository;
+import com.barbearia.barbearia.modules.scheduling.event.SchedulingCompletedEvent;
 import com.barbearia.barbearia.modules.scheduling.model.AppointmentStatus;
 import com.barbearia.barbearia.modules.scheduling.model.Scheduling;
 import com.barbearia.barbearia.modules.scheduling.model.SchedulingAdditionalValue;
@@ -26,6 +25,7 @@ import com.barbearia.barbearia.modules.scheduling.repository.SchedulingRepositor
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.tenant.BusinessContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,9 +44,9 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final BarberServiceRepository barberServiceRepository;
     private final UserRepository userRepository;
-    private final BusinessService businessService;
     private final InventoryService inventoryService;
     private final OrderMapper orderMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     private Long getBusinessId() {
         return BusinessContext.findBusinessId().orElseThrow(
@@ -138,7 +138,7 @@ public class OrderService {
                         "Order Checkout #" + order.getId()))
                 .toList();
 
-        inventoryService.registerMovement(businessId, StockMovementType.EXIT, movements, currentUserId);
+        inventoryService.registerMovements(businessId, StockMovementType.EXIT, movements, currentUserId);
     }
 
     private List<SchedulingAdditionalValue> applyAdditionalValues(Order order, List<CheckoutRequest.AdditionalValueRequest> request, Long businessId) {
@@ -304,6 +304,8 @@ public class OrderService {
             scheduling.setPaymentMethod(request.paymentMethod());
 
             additionalValues.forEach(scheduling::addAdditionalValue);
+
+            eventPublisher.publishEvent(new SchedulingCompletedEvent(scheduling.getId(), businessId));
 
         }
 
