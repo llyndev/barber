@@ -40,7 +40,12 @@ public interface BusinessRepository extends JpaRepository<Business, Long>{
 
     Optional<Business> findBySlug(String slug);
 
-    Optional<Long> findIdBySlug(String businessId);
+    @Query("""
+            SELECT b.id
+            FROM Business b
+            WHERE b.slug = :slug
+            """)
+    Optional<Long> findIdBySlug(@Param("slug")String businessId);
 
     List<Business> findByOwnerId(Long id);
 
