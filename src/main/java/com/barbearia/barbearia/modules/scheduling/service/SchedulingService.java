@@ -655,6 +655,7 @@ public class SchedulingService {
     /**
      * Inicia o atendimento e abre a comanda.
      */
+    @Transactional
     public void startScheduling(Long schedulingId, Long currentUserId) {
         businessGuard.requireOwnerOrMangerOrBarber();
 
@@ -670,7 +671,6 @@ public class SchedulingService {
             throw new ConflictException("Não é possível alterar o status do agendamento no estado atual");
         }
 
-        scheduling.setStates(AppointmentStatus.IN_PROGRESS);
         schedulingRepository.save(scheduling);
 
         orderService.createOrder(new CreateOrderRequest(scheduling.getId(), user.getId(), user.getName(), scheduling.getBarber().getId()));
