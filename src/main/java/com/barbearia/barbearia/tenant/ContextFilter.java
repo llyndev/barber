@@ -107,7 +107,7 @@ public class ContextFilter extends OncePerRequestFilter {
     private Long currentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        if (auth == null || auth.isAuthenticated()) {
+        if (auth == null || !auth.isAuthenticated()) {
             return null;
         }
 
