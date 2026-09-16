@@ -19,10 +19,7 @@ public record RegisterRequest(
         String password,
 
         @NotBlank
-        String confirmPassword,
-
-        @NotBlank
-        PlatformRole platformRole
+        String confirmPassword
 
 ) {
 }
