@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   app:
     build: .
     container_name: barbearia-api
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       - DB_URL=jdbc:postgresql://db:5432/${POSTGRES_DB}
       - DB_USERNAME=${POSTGRES_USER}
@@ -13,9 +11,11 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - SPRING_PROFILES_ACTIVE=prod
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
+    mem_limit: 2g
     networks:
       - barbearia-network
     restart: unless-stopped
@@ -27,14 +27,38 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TZ=America/Sao_Paulo
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - barbearia-network
     restart: unless-stopped
 
+caddy:
+  image: caddy:2-alpine
+  container_name: barbearia-caddy
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    - caddy_data:/data      # certificados ficam aqui; não perca esse volume
+    - caddy_config:/config
+  depends_on:
+    - app
+  networks:
+    - barbearia-network
+  restart: unless-stopped
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:
 
 networks:
   barbearia-network:
