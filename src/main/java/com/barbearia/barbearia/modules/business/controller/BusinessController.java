@@ -7,6 +7,7 @@ import java.util.Map;
 
 import com.barbearia.barbearia.exception.ExternalServiceException;
 import com.barbearia.barbearia.modules.account.dto.response.BusinessPublicResponse;
+import com.barbearia.barbearia.modules.business.dto.request.UpdateSlotIntervalRequest;
 import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
 import com.barbearia.barbearia.modules.business.model.BusinessImageType;
 import org.springframework.data.domain.Page;
@@ -17,15 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.barbearia.barbearia.modules.business.dto.request.BusinessRequest;
 import com.barbearia.barbearia.modules.business.dto.response.BusinessResponse;
@@ -112,6 +105,13 @@ public class BusinessController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         return businessService.activate(id, userDetails.id());
+    }
+
+    @PatchMapping("/me/slot-interval")
+    public ResponseEntity<Void> updateSlotInterval(@RequestBody @Valid UpdateSlotIntervalRequest request) {
+        businessService.updateSlotInterval(request);
+
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/image")

@@ -48,6 +48,10 @@ public class Business {
     @Builder.Default
     private boolean active = true;
 
+    @Builder.Default
+    @Column(name = "slot_interval_minutes", nullable = false)
+    private Integer slotIntervalMinutes = 15;
+
     @Column(name = "instagram_link")
     private String instagramLink;
 
