@@ -45,10 +45,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -74,6 +71,8 @@ public class SchedulingService {
     private final SchedulingMapper schedulingMapper;
     private final BusinessGuard businessGuard;
     private final ApplicationEventPublisher eventPublisher;
+
+    private static final ZoneId ZONE= ZoneId.of("America/Sao_Paulo");
 
     /**
      * Lista paginada de todos os agendamentos da barbearia atual.
@@ -203,55 +202,40 @@ public class SchedulingService {
      * (nome e telefone digitados na hora).
      */
     @Transactional
-    public SchedulingResponse createStaffScheduling(SchedulingStaffRequest request) {
+    public SchedulingResponse createStaffScheduling(CreateSchedulingStaffRequest request) {
         businessGuard.requireOwnerOrMangerOrBarber();
 
         Long businessId = BusinessContext.requireBusinessId();
         Business business = businessRepository.getReferenceById(businessId);
 
-        List<BarberService> barberService = barberServiceRepository.findAllById(request.barberServiceIds());
+        List<BarberService> barberService = barberServiceRepository.findAllById(request.serviceIds());
 
         List<BarberService> validServices = barberService.stream()
                 .filter(service -> service.getBusiness().getId().equals(businessId))
                 .toList();
 
-        if (barberService.isEmpty() || validServices.size() != request.barberServiceIds().size()) {
+        if (barberService.isEmpty() || validServices.size() != request.serviceIds().size()) {
             throw new ResourceNotFoundException("Serviço não encontrado");
         }
 
-        LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
+        LocalDateTime start = (request.start() != null ? request.start() : LocalDateTime.now(ZONE))
+                .withSecond(0).withNano(0);
 
         AppUser barber = userRepository.findByIdForUpdate(request.barberId()).orElseThrow(
-                ()-> new ResourceNotFoundException("Invalid Barber"));
+                ()-> new ResourceNotFoundException("Barbeiro não encontrado."));
 
-        ensureAvailableOrThrow(barber.getId(), validServices, start);
+        ensureAvaiableStaff(barber.getId(), validServices, start, request.force());
 
         Scheduling sched = new Scheduling();
-        sched.setClientName(request.clientName());
-        sched.setClientNumber(request.clientNumber());
         sched.setBarber(barber);
         sched.setBarberService(new ArrayList<>(validServices));
         sched.setDateTime(start);
         sched.setStates(AppointmentStatus.SCHEDULED);
         sched.setBusiness(business);
 
-        Scheduling saved;
+        Scheduling saved = schedulingRepository.saveAndFlush(sched);
 
-        try {
-            saved = schedulingRepository.saveAndFlush(sched);
-        } catch (DataIntegrityViolationException ex) {
-            throw new ConflictingScheduleException("Hórario conflitante.");
-        }
-
-        SchedulingResponse response = schedulingMapper.toResponse(saved);
-
-        try {
-            googleCalenderService.syncSchedulingCreated(saved);
-        } catch (Exception ex) {
-            log.warn("falha ao tentar salvar agendamento no calendario." + ex.getMessage());
-        }
-
-        return response;
+        return schedulingMapper.toResponse(saved);
     }
 
     /**
@@ -499,8 +483,8 @@ public class SchedulingService {
             throw new InvalidRequestException("Horário não encontrado");
         }
 
-        if (start.toLocalDate().isEqual(LocalDate.now()) && !start.toLocalTime().isAfter(LocalTime.now())) {
-            throw new InvalidRequestException("Requisição inválida");
+        if (!start.isAfter(LocalDateTime.now(ZONE))) {
+            throw new InvalidRequestException("Não é possível agendar no passado.");
         }
 
         var hoursOpt = openingHoursService.findForBarberAndDate(barberId, start.toLocalDate());
@@ -508,46 +492,40 @@ public class SchedulingService {
             throw new ConflictingScheduleException("Barbearia fechada ou barbeiro indisponível");
         }
 
-        LocalTime open = hoursOpt.get().openTime();
-        LocalTime close = hoursOpt.get().closeTime();
+        LocalDateTime end = start.plusMinutes(calculateTotalMinutes(barberService));
 
-        int totalDurationInMinutes = barberService.stream()
-                .mapToInt(s -> (s.getDurationInMinutes() != null && s.getDurationInMinutes() > 0) ? s.getDurationInMinutes() : SLOT_MINUTES)
-                .sum();
-
-        Duration totalDuration = Duration.ofMinutes(totalDurationInMinutes);
-
-        LocalTime startTime = start.toLocalTime();
-        LocalTime endTime = startTime.plus(totalDuration);
-
-        if (startTime.isBefore(open) || endTime.isAfter(close)) {
-            throw new InvalidRequestException("Appointment is outside of opening hours.");
+        if (start.toLocalTime().isBefore(hoursOpt.get().openTime())
+                || end.toLocalTime().isAfter(hoursOpt.get().closeTime())) {
+            throw new InvalidRequestException("Hórario fora do expediente.");
         }
 
-        LocalDateTime dayStart = start.toLocalDate().atStartOfDay();
-        LocalDateTime dayEnd = start.toLocalDate().atTime(LocalTime.MAX);
+        findConflict(barberId, start, end).ifPresent(c -> {
+            throw new ConflictingScheduleException("Hórario conflitante.");
+        });
 
-        List<Scheduling> dayAppointments = schedulingRepository
-                .findByBarber_IdAndDateTimeBetween(barberId, dayStart, dayEnd);
+    }
 
-        LocalDateTime newEnd = start.plus(totalDuration);
-
-        for (Scheduling scheduling : dayAppointments) {
-            if (scheduling == null || scheduling.getDateTime() == null) continue;
-            if (scheduling.getStates() == AppointmentStatus.CANCELED || scheduling.getStates() == AppointmentStatus.RESCHEDULED) continue;
-
-            int existingDurationInMinutes = scheduling.getBarberService().stream()
-                    .mapToInt(s -> (s.getDurationInMinutes() != null && s.getDurationInMinutes() > 0) ? s.getDurationInMinutes() : SLOT_MINUTES)
-                    .sum();
-
-            LocalDateTime existingStart = scheduling.getDateTime().withSecond(0).withNano(0);
-            LocalDateTime existingEnd = existingStart.plusMinutes(existingDurationInMinutes);
-
-            boolean overlaps = start.isBefore(existingEnd) && newEnd.isAfter(existingStart);
-            if (overlaps) {
-                throw new ConflictingScheduleException("Horário conflitante");
-            }
+    private void ensureAvaiableStaff(Long barberId, List<BarberService> barberServices, LocalDateTime start, boolean force) {
+        if (start == null) {
+            throw new InvalidRequestException("Obrigatório informar o horário da comanda.");
         }
+
+        if (barberServices == null || barberServices.isEmpty()) {
+            throw new InvalidRequestException("Informe ao menos um serviço.");
+        }
+
+        if (force) return;
+
+        LocalDateTime end = start.plusMinutes(calculateTotalMinutes(barberServices));
+
+        findConflict(barberId, start, end).ifPresent(c -> {
+            LocalDateTime cStart = c.getDateTime();
+            LocalDateTime cEnd = cStart.plusMinutes(calculateTotalMinutes(c.getBarberService()));
+            throw new ConflictingScheduleException(
+                    "Barbeiro já tem um atendimento das %s às %s. Envie force=true para encaixar."
+                            .formatted(cStart.toLocalTime(), cEnd.toLocalTime())
+            );
+        });
     }
 
     /**
@@ -650,6 +628,37 @@ public class SchedulingService {
 
             scheduling.addAdditionalValue(value);
         }
+    }
+
+    /**
+     * Procura um atendimento ativo do barbeiro que se sobreponha ao intervalo.
+     */
+    private Optional<Scheduling> findConflict(Long barberId, LocalDateTime start, LocalDateTime end) {
+        LocalDateTime dayStart = start.toLocalDate().atStartOfDay();
+        LocalDateTime dayEnd = start.toLocalDate().atTime(LocalTime.MAX);
+
+        return schedulingRepository.findByBarber_IdAndDateTimeBetween(barberId, dayStart, dayEnd)
+                .stream()
+                .filter(s -> s != null && s.getDateTime() != null)
+                .filter(s -> s.getStates() != AppointmentStatus.CANCELED
+                            && s.getStates() != AppointmentStatus.RESCHEDULED)
+                .filter(s -> {
+                    LocalDateTime existingStart = s.getDateTime().withSecond(0).withNano(0);
+                    LocalDateTime exintingEnd = existingStart.plusMinutes(calculateTotalMinutes(s.getBarberService()));
+                    return start.isBefore(exintingEnd) && end.isAfter(existingStart);
+                })
+                .findFirst();
+    }
+
+    /**
+     * Soma duração dos serviços.
+     */
+    private int calculateTotalMinutes(List<BarberService> services) {
+        return services.stream()
+                .mapToInt(s -> (s.getDurationInMinutes() != null && s.getDurationInMinutes() > 0)
+                        ? s.getDurationInMinutes()
+                        : SLOT_MINUTES)
+                .sum();
     }
 
     /**

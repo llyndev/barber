@@ -1,10 +1,7 @@
 package com.barbearia.barbearia.modules.scheduling.controller;
 
 import com.barbearia.barbearia.modules.catalog.dto.request.AddServiceRequest;
-import com.barbearia.barbearia.modules.scheduling.dto.request.EndSchedulingRequest;
-import com.barbearia.barbearia.modules.scheduling.dto.request.ReasonRequest;
-import com.barbearia.barbearia.modules.scheduling.dto.request.SchedulingRequest;
-import com.barbearia.barbearia.modules.scheduling.dto.request.SchedulingStaffRequest;
+import com.barbearia.barbearia.modules.scheduling.dto.request.*;
 import com.barbearia.barbearia.modules.scheduling.dto.response.SchedulingResponse;
 import com.barbearia.barbearia.security.UserDetailsImpl;
 import com.barbearia.barbearia.modules.scheduling.service.SchedulingService;
@@ -123,7 +120,7 @@ public class SchedulingController {
      * (nome e telefone digitados na hora).
      */
     @PostMapping("/staff")
-    public ResponseEntity<SchedulingResponse> createByStaff(@RequestBody @Valid SchedulingStaffRequest request) {
+    public ResponseEntity<SchedulingResponse> createByStaff(@RequestBody @Valid CreateSchedulingStaffRequest request) {
 
         SchedulingResponse created = schedulingService.createStaffScheduling(request);
 
