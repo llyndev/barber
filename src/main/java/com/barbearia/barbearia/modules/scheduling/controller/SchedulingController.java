@@ -120,7 +120,7 @@ public class SchedulingController {
      * (nome e telefone digitados na hora).
      */
     @PostMapping("/staff")
-    public ResponseEntity<SchedulingResponse> createByStaff(@RequestBody @Valid CreateSchedulingStaffRequest request) {
+    public ResponseEntity<SchedulingResponse> createByStaff(@RequestBody @Valid SchedulingStaffRequest request) {
 
         SchedulingResponse created = schedulingService.createStaffScheduling(request);
 

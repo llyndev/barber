@@ -14,13 +14,15 @@ public record SchedulingStaffRequest(
         Long barberId,
 
         @NotNull(message = "The date and time must be informed.")
-        LocalDateTime dateTime,
+        LocalDateTime start,
 
         @NotNull(message = "The client name must be informed.")
         String clientName,
 
-        @NotNull(message = "The client number is required.")
-        String clientNumber
+        //@NotNull(message = "The client number is required.")
+        String clientNumber,
+
+        boolean force
 
 ) {
 }

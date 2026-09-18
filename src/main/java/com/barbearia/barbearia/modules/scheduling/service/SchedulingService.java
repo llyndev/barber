@@ -202,7 +202,7 @@ public class SchedulingService {
      * (nome e telefone digitados na hora).
      */
     @Transactional
-    public SchedulingResponse createStaffScheduling(CreateSchedulingStaffRequest request) {
+    public SchedulingResponse createStaffScheduling(SchedulingStaffRequest request) {
         businessGuard.requireOwnerOrMangerOrBarber();
 
         Long businessId = BusinessContext.requireBusinessId();
