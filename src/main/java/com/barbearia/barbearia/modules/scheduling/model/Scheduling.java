@@ -72,6 +72,8 @@ public class Scheduling {
     @Builder.Default
     private List<SchedulingProduct> productsUsed = new ArrayList<>();
 
+    private LocalDateTime finishedAt;
+
     @ManyToOne
     @JoinColumn(name = "business_id")
     private Business business;
