@@ -208,13 +208,13 @@ public class SchedulingService {
         Long businessId = BusinessContext.requireBusinessId();
         Business business = businessRepository.getReferenceById(businessId);
 
-        List<BarberService> barberService = barberServiceRepository.findAllById(request.serviceIds());
+        List<BarberService> barberService = barberServiceRepository.findAllById(request.barberServiceIds());
 
         List<BarberService> validServices = barberService.stream()
                 .filter(service -> service.getBusiness().getId().equals(businessId))
                 .toList();
 
-        if (barberService.isEmpty() || validServices.size() != request.serviceIds().size()) {
+        if (barberService.isEmpty() || validServices.size() != request.barberServiceIds().size()) {
             throw new ResourceNotFoundException("Serviço não encontrado");
         }
 
