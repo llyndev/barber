@@ -298,8 +298,22 @@ public class OrderService {
             Scheduling scheduling = schedulingRepository.findByIdAndBusinessId(order.getSchedulingId(), businessId).orElseThrow(
                     () -> new ResourceNotFoundException("Scheduling not found."));
 
+            if (scheduling.getStates() == AppointmentStatus.CANCELED) {
+                throw new InvalidRequestException("Scheduling already cancelled.");
+            }
+
+            // Comanda que ficou aberta depois de o agendamento ser concluído por
+            // PATCH /scheduling/{id}/complete: fecha só a comanda, sem concluir
+            // o agendamento de novo nem duplicar os valores adicionais dele.
+            if (scheduling.getStates() == AppointmentStatus.COMPLETED) {
+                order.setPaymentMethod(request.paymentMethod());
+                order.setPaymentAt(LocalDateTime.now());
+                order.setStatus(OrderStatus.PAID);
+                return orderMapper.toResponse(orderRepository.save(order));
+            }
+
             if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
-                throw new InvalidRequestException("Scheduling already completed or cancelled.");
+                throw new InvalidRequestException("Scheduling cannot be completed in its current state.");
             }
 
             scheduling.setStates(AppointmentStatus.COMPLETED);
@@ -323,6 +337,46 @@ public class OrderService {
 
          return orderMapper.toResponse(orderRepository.findById(orderId)
                  .orElseThrow(() -> new ResourceNotFoundException("Order not found")));
+    }
+
+    /**
+     * Se o agendamento tem comanda aberta, finaliza por ela: serviços extras e
+     * produtos entram como itens e o checkout conclui comanda e agendamento
+     * juntos. Devolve vazio quando não há comanda aberta.
+     */
+    @Transactional
+    public Optional<OrderResponse> checkoutOpenOrderOfScheduling(
+            Long schedulingId,
+            List<Long> servicesIds,
+            List<AddOrderItemRequest> products,
+            CheckoutRequest checkout,
+            Long currentUserId) {
+        Long businessId = getBusinessId();
+
+        Optional<Order> open = orderRepository.findBySchedulingId(schedulingId)
+                .filter(o -> businessId.equals(o.getBusinessId()))
+                .filter(o -> o.getStatus() == OrderStatus.OPEN);
+
+        if (open.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Order order = open.get();
+        Set<Long> servicesInOrder = order.getItems().stream()
+                .filter(i -> i.getType() == OrderItemType.SERVICE)
+                .map(OrderItem::getItemId)
+                .collect(Collectors.toSet());
+
+        for (Long serviceId : Optional.ofNullable(servicesIds).orElse(List.of())) {
+            if (!servicesInOrder.contains(serviceId)) {
+                addItem(order.getId(), new AddOrderItemRequest(OrderItemType.SERVICE, serviceId, 1));
+            }
+        }
+        for (AddOrderItemRequest product : Optional.ofNullable(products).orElse(List.of())) {
+            addItem(order.getId(), product);
+        }
+
+        return Optional.of(checkout(order.getId(), checkout, currentUserId));
     }
 
     public List<OrderResponse> getOrderByBusiness(String slug) {

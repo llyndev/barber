@@ -28,6 +28,9 @@ import com.barbearia.barbearia.modules.inventory.model.StockMovementType;
 import com.barbearia.barbearia.modules.inventory.repository.ProductRepository;
 import com.barbearia.barbearia.modules.inventory.model.Product;
 import com.barbearia.barbearia.modules.scheduling.model.SchedulingProduct;
+import com.barbearia.barbearia.modules.orders.dto.request.AddOrderItemRequest;
+import com.barbearia.barbearia.modules.orders.dto.request.CheckoutRequest;
+import com.barbearia.barbearia.modules.orders.model.OrderItemType;
 import com.barbearia.barbearia.modules.orders.service.OrderService;
 import com.barbearia.barbearia.modules.orders.dto.request.CreateOrderRequest;
 import com.barbearia.barbearia.modules.googlecalender.service.GoogleCalenderService;
@@ -320,6 +323,28 @@ public class SchedulingService {
         // Verifica se o agendamneto que esta sendo finalizado esta com o STATUS de SCHEDULED (AGENDADO)
         if (scheduling.getStates() != AppointmentStatus.SCHEDULED) {
             throw new InvalidRequestException("Requisição inválida.");
+        }
+
+        // Atendimento iniciado tem comanda aberta: finalizar só o agendamento
+        // deixaria a comanda órfã. Fecha pela comanda, que conclui os dois.
+        boolean closedByOrder = orderService.checkoutOpenOrderOfScheduling(
+                schedulingId,
+                request.servicesIds(),
+                Optional.ofNullable(request.productsUsed()).orElse(List.of()).stream()
+                        .map(p -> new AddOrderItemRequest(OrderItemType.PRODUCT, p.productId(), p.quantity()))
+                        .toList(),
+                new CheckoutRequest(
+                        request.paymentMethod(),
+                        Optional.ofNullable(request.additionalValue()).orElse(List.of()).stream()
+                                .map(v -> new CheckoutRequest.AdditionalValueRequest(v.barberId(), v.value()))
+                                .toList()),
+                currentUserId
+        ).isPresent();
+
+        if (closedByOrder) {
+            scheduling.setObservation(request.observation());
+            scheduling.setFinishedAt(LocalDateTime.now(ZONE));
+            return schedulingMapper.toResponse(schedulingRepository.save(scheduling));
         }
 
         applyAdditionalServices(scheduling, request.servicesIds(), businessId);
