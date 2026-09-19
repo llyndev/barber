@@ -29,27 +29,27 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/items")
-    public ResponseEntity<OrderResponse> addItem(@PathVariable Long id, @RequestBody @Valid AddOrderItemRequest request) {
+    public ResponseEntity<OrderResponse> addItem(@PathVariable("id") Long id, @RequestBody @Valid AddOrderItemRequest request) {
         return ResponseEntity.ok(orderService.addItem(id, request));
     }
 
     @DeleteMapping("/{id}/items/{itemId}")
-    public ResponseEntity<OrderResponse> removeItem(@PathVariable Long id, @PathVariable Long itemId) {
+    public ResponseEntity<OrderResponse> removeItem(@PathVariable("id") Long id, @PathVariable("itemId") Long itemId) {
         return ResponseEntity.ok(orderService.removeItem(id, itemId));
     }
 
     @PostMapping("/{id}/checkout")
-    public ResponseEntity<OrderResponse> checkout(@PathVariable Long id, @RequestBody @Valid CheckoutRequest request, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+    public ResponseEntity<OrderResponse> checkout(@PathVariable("id") Long id, @RequestBody @Valid CheckoutRequest request, @AuthenticationPrincipal UserDetailsImpl userDetails) {
         return ResponseEntity.ok(orderService.checkout(id, request, userDetails.id()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<OrderResponse> getOrder(@PathVariable Long id) {
+    public ResponseEntity<OrderResponse> getOrder(@PathVariable("id") Long id) {
         return ResponseEntity.ok(orderService.getOrder(id));
     }
 
     @GetMapping("/business/{slug}")
-    public ResponseEntity<List<OrderResponse>> getOrderByBusiness(@PathVariable Long id) {
+    public ResponseEntity<List<OrderResponse>> getOrderByBusiness(@PathVariable("slug") String id) {
         return ResponseEntity.ok(orderService.getOrderByBusiness(id));
     }
 }

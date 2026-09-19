@@ -3,6 +3,7 @@ package com.barbearia.barbearia.modules.orders.service;
 import com.barbearia.barbearia.exception.InvalidRequestException;
 import com.barbearia.barbearia.exception.ResourceNotFoundException;
 import com.barbearia.barbearia.modules.account.model.AppUser;
+import com.barbearia.barbearia.modules.business.repository.BusinessRepository;
 import com.barbearia.barbearia.modules.catalog.model.BarberService;
 import com.barbearia.barbearia.modules.catalog.repository.BarberServiceRepository;
 import com.barbearia.barbearia.modules.inventory.dto.request.StockMovementCommand;
@@ -47,6 +48,7 @@ public class OrderService {
     private final InventoryService inventoryService;
     private final OrderMapper orderMapper;
     private final ApplicationEventPublisher eventPublisher;
+    private final BusinessRepository businessRepository;
 
     private Long getBusinessId() {
         return BusinessContext.findBusinessId().orElseThrow(
@@ -323,11 +325,15 @@ public class OrderService {
                  .orElseThrow(() -> new ResourceNotFoundException("Order not found")));
     }
 
-    public List<OrderResponse> getOrderByBusiness(Long id) {
+    public List<OrderResponse> getOrderByBusiness(String slug) {
         Long businessId = BusinessContext.requireBusinessId();
 
-        if (!businessId.equals(id)) {
-            throw new InvalidRequestException("Invalid barbershop");
+        Long slugBusinessId = businessRepository.findBySlug(slug).orElseThrow(
+                () -> new InvalidRequestException("Barbearia inválida."))
+                .getId();
+
+        if (!businessId.equals(slugBusinessId)) {
+            throw new InvalidRequestException("Barbearia inválida.");
         }
 
         return orderRepository.findByBusinessIdOrderByCreatedAtDesc(businessId)
