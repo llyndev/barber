@@ -75,14 +75,14 @@ public class BusinessController {
         return businessService.findAllByOwnerId(userDetails.id());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('PLATFORM_ADMIN')")
-    public BusinessResponse getById(@PathVariable Long id) {
+    public BusinessResponse getById(@PathVariable("id") Long id) {
         return businessService.getById(id);
     }
 
     @GetMapping("/{slug}")
-    public ResponseEntity<BusinessPublicResponse> getPublicBySlug(@PathVariable String slug) {
+    public ResponseEntity<BusinessPublicResponse> getPublicBySlug(@PathVariable("slug") String slug) {
         return ResponseEntity.ok(businessService.getPublicBySlug(slug));
     }
 
