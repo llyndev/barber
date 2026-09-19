@@ -73,6 +73,8 @@ public class SchedulingService {
     private final ApplicationEventPublisher eventPublisher;
 
     private static final ZoneId ZONE= ZoneId.of("America/Sao_Paulo");
+    private static final int DEFAULT_SERVICE_MINUTES = 15;
+    private static final int DEFAULT_SLOT_INTERVAL = 15;
 
     /**
      * Lista paginada de todos os agendamentos da barbearia atual.
@@ -145,12 +147,12 @@ public class SchedulingService {
         Business business = businessRepository.getReferenceById(businessId);
 
         AppUser clientUser = userRepository.findById(authenticatedUserId).orElseThrow(
-                () -> new ResourceNotFoundException("User not found."));
+                () -> new ResourceNotFoundException("Usuário não encontrado."));
 
         boolean isBarberInThisBusiness = userBusinessRepository.existsByUserIdAndBusinessIdAndRole(request.barberId(), businessId, BusinessRole.BARBER);
 
         if (!isBarberInThisBusiness) {
-            throw new ResourceNotFoundException("Invalid barber");
+            throw new ResourceNotFoundException("Barbeiro não encontrado nesta barbearia.");
         }
 
         List<BarberService> barberService = barberServiceRepository.findAllById(request.barberServiceIds());
@@ -166,7 +168,7 @@ public class SchedulingService {
         LocalDateTime start = request.dateTime().withSecond(0).withNano(0);
 
         AppUser barber = userRepository.findByIdForUpdate(request.barberId()).orElseThrow(
-                ()-> new ResourceNotFoundException("Invalid Barber"));
+                ()-> new ResourceNotFoundException("Barbeiro não encontrado."));
 
         ensureAvailableOrThrow(barber.getId(), validServices, start);
 
@@ -328,6 +330,7 @@ public class SchedulingService {
         scheduling.setStates(AppointmentStatus.COMPLETED);
         scheduling.setObservation(request.observation());
         scheduling.setPaymentMethod(request.paymentMethod());
+        scheduling.setFinishedAt(LocalDateTime.now(ZONE));
 
         Scheduling saved = schedulingRepository.save(scheduling);
 
@@ -384,94 +387,49 @@ public class SchedulingService {
      * configurações globais do Spring Boot.
      */
     public List<LocalTime> getAvailableSlots(LocalDate date, List<Long> barberServiceIds, Long barberId) {
-
         Long businessId = BusinessContext.requireBusinessId();
 
         if (barberServiceIds == null || barberServiceIds.isEmpty()) {
             return List.of();
         }
 
-        List<BarberService> barberServices = barberServiceRepository.findAllById(barberServiceIds);
-        List<BarberService> validServices = barberServices.stream()
-                .filter(services -> services.getBusiness().getId().equals(businessId))
+        List<BarberService> validServices = barberServiceRepository.findAllById(barberServiceIds).stream()
+                .filter(s -> s.getBusiness().getId().equals(businessId))
                 .toList();
 
         if (validServices.size() != barberServiceIds.size()) {
             throw new ResourceNotFoundException("Um ou mais serviços não encontrado");
         }
 
-        int totalDurationInMinutes = validServices.stream()
-                .mapToInt(s -> (s.getDurationInMinutes() != null && s.getDurationInMinutes() > 0) ? s.getDurationInMinutes() : SLOT_MINUTES)
-                .sum();
-
-        final Duration durationService = Duration.ofMinutes(totalDurationInMinutes);
-
-        final long slotsNeeded = (long) Math.ceil((double) durationService.toMinutes() / SLOT_MINUTES);
-
         var hoursOpt = openingHoursService.findForBarberAndDate(barberId, date);
         if (hoursOpt.isEmpty() || !hoursOpt.get().active()) {
             return List.of();
         }
 
-        final LocalTime open = hoursOpt.get().openTime();
-        final LocalTime close = hoursOpt.get().closeTime();
+        int duration = calculateTotalMinutes(validServices);
+        int interval = getSlotInterval(businessId);
 
-        List<LocalTime> daySlots = new ArrayList<>();
-        LocalTime t = open;
-        while (!t.isAfter(close.minusMinutes(SLOT_MINUTES))) {
-            daySlots.add(t);
-            t = t.plusMinutes(SLOT_MINUTES);
-        }
+        LocalDateTime open = date.atTime(hoursOpt.get().openTime());
+        LocalDateTime close = date.atTime(hoursOpt.get().closeTime());
+        LocalDateTime now = LocalDateTime.now();
 
-        LocalDateTime startOfDay = date.atStartOfDay();
-        LocalDateTime endOfDay = date.atTime(LocalTime.MAX);
+        List<BusyBlock> busy = loadBusyLocks(barberId, date);
+        List<LocalTime> available = new ArrayList<>();
 
-        List<Scheduling> appointments = schedulingRepository.findByBarber_IdAndDateTimeBetween(barberId, startOfDay, endOfDay);
+        for (LocalDateTime slot = open; !slot.plusMinutes(duration).isAfter(close); slot = slot.plusMinutes(interval)) {
 
-        Set<LocalTime> occupied = new HashSet<>();
+            if (!slot.isAfter(now)) continue;
 
-        for (Scheduling scheduling : appointments) {
-            if (scheduling == null) continue;
-            if (scheduling.getDateTime() == null) continue;
-            if (scheduling.getStates() == AppointmentStatus.CANCELED || scheduling.getStates() == AppointmentStatus.RESCHEDULED) continue;
+            LocalDateTime slotStart = slot;
+            LocalDateTime slotEnd = slot.plusMinutes(duration);
 
-            LocalTime start = scheduling.getDateTime().toLocalTime().withSecond(0).withNano(0);
-
-            int existingDurationInMinutes = scheduling.getBarberService().stream()
-                    .mapToInt(s -> (s.getDurationInMinutes() != null && s.getDurationInMinutes() > 0) ? s.getDurationInMinutes() : SLOT_MINUTES)
-                    .sum();
-
-            long schedulingSlots = (long) Math.ceil((double) existingDurationInMinutes / SLOT_MINUTES);
-
-            LocalTime st = start;
-            for (int i = 0; i < schedulingSlots; i++) {
-                if (!st.isBefore(close)) break;
-                occupied.add(st);
-                st = st.plusMinutes(SLOT_MINUTES);
+            boolean free = busy.stream().noneMatch(b -> b.overlaps(slotStart, slotEnd));
+            if (free) {
+                available.add(slot.toLocalTime());
             }
         }
 
-        LocalTime lastPossibleStartTime = close.minus(durationService);
-        if (lastPossibleStartTime.isBefore(open)) {
-            return List.of();
-        }
-
-        boolean isToday = date.isEqual(LocalDate.now());
-        LocalTime nowTime = LocalTime.now();
-
-        return daySlots.stream()
-                .filter(s -> !s.isAfter(lastPossibleStartTime))
-                .filter(s -> !occupied.contains(s))
-                .filter(s -> !isToday || s.isAfter(nowTime))
-                .filter(s -> {
-                    for (int i = 1; i < slotsNeeded; i++) {
-                        LocalTime next = s.plusMinutes(i * (long) SLOT_MINUTES);
-                        if (next.isAfter(close)) return false;
-                        if (occupied.contains(next)) return false;
-                    }
-                    return true;
-                })
-                .collect(Collectors.toList());
+        return available;
     }
 
     private void ensureAvailableOrThrow(Long barberId, List<BarberService> barberService, LocalDateTime start) {
@@ -492,11 +450,17 @@ public class SchedulingService {
             throw new ConflictingScheduleException("Barbearia fechada ou barbeiro indisponível");
         }
 
+        LocalDateTime open = start.toLocalDate().atTime(hoursOpt.get().openTime());
+        LocalDateTime close = start.toLocalDate().atTime(hoursOpt.get().closeTime());
         LocalDateTime end = start.plusMinutes(calculateTotalMinutes(barberService));
 
-        if (start.toLocalTime().isBefore(hoursOpt.get().openTime())
-                || end.toLocalTime().isAfter(hoursOpt.get().closeTime())) {
+        if (start.isBefore(open) || end.isAfter(close)) {
             throw new InvalidRequestException("Hórario fora do expediente.");
+        }
+
+        int interval = getSlotInterval(BusinessContext.requireBusinessId());
+        if (Duration.between(open, start).toMinutes() % interval != 0) {
+            throw new InvalidRequestException("Hórario não encontrado.");
         }
 
         findConflict(barberId, start, end).ifPresent(c -> {
@@ -518,13 +482,10 @@ public class SchedulingService {
 
         LocalDateTime end = start.plusMinutes(calculateTotalMinutes(barberServices));
 
-        findConflict(barberId, start, end).ifPresent(c -> {
-            LocalDateTime cStart = c.getDateTime();
-            LocalDateTime cEnd = cStart.plusMinutes(calculateTotalMinutes(c.getBarberService()));
+        findConflict(barberId, start, end).ifPresent(b -> {
             throw new ConflictingScheduleException(
                     "Barbeiro já tem um atendimento das %s às %s. Envie force=true para encaixar."
-                            .formatted(cStart.toLocalTime(), cEnd.toLocalTime())
-            );
+                            .formatted(b.start().toLocalTime(), b.end().toLocalTime()));
         });
     }
 
@@ -631,34 +592,63 @@ public class SchedulingService {
     }
 
     /**
-     * Procura um atendimento ativo do barbeiro que se sobreponha ao intervalo.
-     */
-    private Optional<Scheduling> findConflict(Long barberId, LocalDateTime start, LocalDateTime end) {
-        LocalDateTime dayStart = start.toLocalDate().atStartOfDay();
-        LocalDateTime dayEnd = start.toLocalDate().atTime(LocalTime.MAX);
-
-        return schedulingRepository.findByBarber_IdAndDateTimeBetween(barberId, dayStart, dayEnd)
-                .stream()
-                .filter(s -> s != null && s.getDateTime() != null)
-                .filter(s -> s.getStates() != AppointmentStatus.CANCELED
-                            && s.getStates() != AppointmentStatus.RESCHEDULED)
-                .filter(s -> {
-                    LocalDateTime existingStart = s.getDateTime().withSecond(0).withNano(0);
-                    LocalDateTime exintingEnd = existingStart.plusMinutes(calculateTotalMinutes(s.getBarberService()));
-                    return start.isBefore(exintingEnd) && end.isAfter(existingStart);
-                })
-                .findFirst();
-    }
-
-    /**
      * Soma duração dos serviços.
      */
     private int calculateTotalMinutes(List<BarberService> services) {
         return services.stream()
                 .mapToInt(s -> (s.getDurationInMinutes() != null && s.getDurationInMinutes() > 0)
                         ? s.getDurationInMinutes()
-                        : SLOT_MINUTES)
+                        : DEFAULT_SERVICE_MINUTES)
                 .sum();
+    }
+
+    /**
+     * Período em que o barbeiro está ocupado.
+     */
+    private record BusyBlock(LocalDateTime start, LocalDateTime end) {
+        boolean overlaps(LocalDateTime otherStart, LocalDateTime otherEnd) {
+            return otherStart.isBefore(end) && otherEnd.isAfter(start);
+        }
+    }
+
+    /**
+     * Decide o que ocupa a agenda do barbeiro num dia.
+     */
+    private List<BusyBlock> loadBusyLocks(Long barberId, LocalDate date) {
+        return schedulingRepository
+                .findByBarber_IdAndDateTimeBetween(barberId, date.atStartOfDay(), date.atTime(LocalTime.MAX))
+                .stream()
+                .filter(s -> s != null && s.getDateTime() != null)
+                .filter(s -> s.getStates() != AppointmentStatus.CANCELED
+                            && s.getStates() != AppointmentStatus.RESCHEDULED)
+                .map(this::toBusyBlock)
+                .toList();
+    }
+
+    private BusyBlock toBusyBlock(Scheduling scheduling) {
+        LocalDateTime start = scheduling.getDateTime().withSecond(0).withNano(0);
+        LocalDateTime end = start.plusMinutes(calculateTotalMinutes(scheduling.getBarberService()));
+
+        if (scheduling.getFinishedAt() != null && scheduling.getFinishedAt().isBefore(end)) {
+            return new BusyBlock(start, scheduling.getFinishedAt());
+        }
+
+        return new BusyBlock(start, end);
+    }
+
+    /**
+     * Procura um atendimento ativo do barbeiro que se sobreponha ao intervalo.
+     */
+    private Optional<BusyBlock> findConflict(Long barberId, LocalDateTime start, LocalDateTime end) {
+        return loadBusyLocks(barberId, start.toLocalDate()).stream()
+                .filter(b -> b.overlaps(start, end))
+                .findFirst();
+    }
+
+    private int getSlotInterval(Long businessId) {
+        return businessRepository.findById(businessId)
+                .map(Business::getSlotIntervalMinutes)
+                .orElse(DEFAULT_SLOT_INTERVAL);
     }
 
     /**

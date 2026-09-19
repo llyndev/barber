@@ -2,6 +2,7 @@ package com.barbearia.barbearia.modules.business.service;
 
 import java.util.List;
 import java.io.IOException;
+import java.util.Set;
 
 import com.barbearia.barbearia.common.util.TextNormalizer;
 import com.barbearia.barbearia.exception.ConflictException;
@@ -10,6 +11,7 @@ import com.barbearia.barbearia.modules.account.dto.response.BusinessPublicRespon
 import com.barbearia.barbearia.modules.account.model.AppUser;
 import com.barbearia.barbearia.modules.account.repository.UserRepository;
 import com.barbearia.barbearia.modules.account.service.FileStorageService;
+import com.barbearia.barbearia.modules.business.dto.request.UpdateSlotIntervalRequest;
 import com.barbearia.barbearia.modules.business.dto.response.BusinessSummaryResponse;
 import com.barbearia.barbearia.modules.business.model.BusinessImageType;
 import com.barbearia.barbearia.tenant.BusinessContext;
@@ -52,6 +54,8 @@ public class BusinessService {
     private final SlugGenerator slugGenerator;
     private final BusinessGuard businessGuard;
     private final TransactionTemplate transactionTemplate;
+
+    private static final Set<Integer> ALLOWED_SLOT_INTERVALS = Set.of(5, 10, 15, 20, 25, 30);
 
     // Metodo para listar todas as barbearias
     // METODO NÃO ESTA SENDO UTILIZADO
@@ -190,6 +194,21 @@ public class BusinessService {
         Business response = businessRepository.save(business);
 
         return businessMapper.toResponse(response);
+    }
+
+    @Transactional
+    public void updateSlotInterval(UpdateSlotIntervalRequest request) {
+        businessGuard.requireOwner();
+
+        if (!ALLOWED_SLOT_INTERVALS.contains(request.slotIntervalMinutes())) {
+            throw new InvalidRequestException("Intervalo inválido.");
+        }
+
+        Business business = businessRepository.findById(BusinessContext.requireBusinessId()).orElseThrow(
+                () -> new ResourceNotFoundException("Barbearia não encontrada."));
+
+        business.setSlotIntervalMinutes(request.slotIntervalMinutes());
+
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
