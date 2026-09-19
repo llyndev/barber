@@ -16,7 +16,8 @@ public record BusinessResponse(
         String businessImage,
         String backgroundImage,
         String owner,
-        AddressResponseDTO addres
+        AddressResponseDTO addres,
+        Integer slotIntervalMinutes
 ) {
 
 }

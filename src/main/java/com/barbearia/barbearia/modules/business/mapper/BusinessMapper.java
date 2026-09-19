@@ -48,7 +48,8 @@ public class BusinessMapper {
                 buildImageUrl(business.getBusinessImage()),
                 buildImageUrl(business.getBackgroundImage()),
                 business.getOwner() != null ? business.getOwner().getName() : null,
-                addressMapper.toResponse(business.getAddress())
+                addressMapper.toResponse(business.getAddress()),
+                business.getSlotIntervalMinutes()
         );
     }
 
